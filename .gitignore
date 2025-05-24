@@ -1,0 +1,96 @@
+# Go build artifacts
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+*.cover
+coverage.out
+coverage.html
+profile.out
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+Godeps/
+
+# Project-specific executables
+search_engine
+go-search-engine
+/cmd/*/main
+/cmd/*/*
+
+# Search engine data files
+# Runtime generated data (indexes, document stores, settings)
+*.gob
+search_data/
+api/test_data/*/
+
+# Cache and temporary files
+*.cache
+*.tmp
+*~
+.cache/
+
+# Log files
+*.log
+logs/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.vim/
+*.iml
+*.ipr
+*.iws
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Environment configuration
+.env
+*.env
+.env.*
+!/.env.example
+!/.env.template
+
+# Archives and compressed files
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
+# Performance profiling files
+*.prof
+*.pprof
+cpu.prof
+mem.prof
+block.prof
+mutex.prof
+
+# Benchmark results
+*.bench
+
+# Add your project specific executable name if different
+# For example, if your main executable is 'my_app':
+# my_app 

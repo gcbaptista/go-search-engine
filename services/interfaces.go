@@ -1,0 +1,67 @@
+package services
+
+import (
+	"github.com/gcbaptista/go-search-engine/config"
+	"github.com/gcbaptista/go-search-engine/model"
+)
+
+// HitInfo contains metadata about a search hit, like typo counts and exact matches.
+// This will be embedded in HitResult.
+type HitInfo struct {
+	NumTypos         int `json:"num_typos"`          // Number of original query terms that matched via typo correction
+	NumberExactWords int `json:"number_exact_words"` // Number of original query terms that matched exactly (not via typo)
+}
+
+// HitResult represents a single document in the search results,
+// including the document itself and details about which query terms matched in which fields.
+type HitResult struct {
+	Document     model.Document      `json:"document"`
+	FieldMatches map[string][]string `json:"field_matches"` // e.g., {"title": ["lord", "ring"], "tags": ["epic"]}
+	Score        float64             `json:"score"`         // The overall score for this hit
+	Info         HitInfo             `json:"hit_info"`      // Contains metadata like typo counts and exact matches
+}
+
+type SearchResult struct {
+	Hits     []HitResult `json:"hits"` // Changed from []model.Document
+	Total    int         `json:"total"`
+	Page     int         `json:"page"`
+	PageSize int         `json:"page_size"`
+	Took     int64       `json:"took"`     // milliseconds
+	QueryId  string      `json:"query_id"` // unique UUID for this search query
+}
+
+type SearchQuery struct {
+	QueryString string
+	Filters     map[string]interface{} // e.g., {"genre": "Action", "year_gt": 2000}
+	Page        int
+	PageSize    int
+}
+
+// Indexer defines operations for adding data to an index
+type Indexer interface {
+	AddDocuments(docs []model.Document) error
+	DeleteAllDocuments() error
+	DeleteDocument(docID string) error
+}
+
+// Searcher defines operations for querying an index
+type Searcher interface {
+	Search(query SearchQuery) (SearchResult, error)
+}
+
+// IndexManager manages the lifecycle of indices
+type IndexManager interface {
+	CreateIndex(settings config.IndexSettings) error
+	GetIndex(name string) (IndexAccessor, error) // IndexAccessor combines Indexer and Searcher
+	GetIndexSettings(name string) (config.IndexSettings, error)
+	UpdateIndexSettings(name string, settings config.IndexSettings) error
+	DeleteIndex(name string) error
+	ListIndexes() []string
+	PersistIndexData(indexName string) error
+}
+
+type IndexAccessor interface {
+	Indexer
+	Searcher
+	Settings() config.IndexSettings
+}

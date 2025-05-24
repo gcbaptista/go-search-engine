@@ -1,0 +1,1068 @@
+openapi: 3.0.3
+info:
+  title: Go Search Engine API
+  description: |
+    A high-performance, full-text search engine API with advanced features including:
+    - Full-text search with typo tolerance
+    - Prefix search and autocomplete
+    - Advanced filtering and ranking
+    - Unicode support
+    - Document indexing and management
+  version: 1.0.0
+  contact:
+    name: Go Search Engine
+    url: https://github.com/gcbaptista/go-search-engine
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+
+tags:
+  - name: Index Management
+    description: Operations for creating, listing, and managing search indexes
+  - name: Document Management
+    description: Operations for adding, updating, and managing documents
+  - name: Search
+    description: Search operations across indexed documents
+  - name: System
+    description: System health and status operations
+
+paths:
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      description: Returns the health status of the search engine service
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  service:
+                    type: string
+                    example: "go-search-engine"
+                  timestamp:
+                    type: string
+                    example: "1640995200"
+
+  /indexes:
+    post:
+      tags:
+        - Index Management
+      summary: Create a new search index
+      description: Creates a new search index with specified configuration including searchable fields, filterable fields, and ranking criteria.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IndexSettings"
+            examples:
+              basic_index:
+                summary: Basic index for movies
+                value:
+                  name: "movies"
+                  searchable_fields: ["title", "cast", "genres"]
+                  filterable_fields: ["year", "rating", "genres"]
+                  ranking_criteria:
+                    - field: "popularity"
+                      order: "desc"
+                    - field: "rating"
+                      order: "desc"
+                  min_word_size_for_1_typo: 4
+                  min_word_size_for_2_typos: 7
+              advanced_index:
+                summary: Advanced index with prefix search disabled
+                value:
+                  name: "documents"
+                  searchable_fields: ["title", "content", "author"]
+                  filterable_fields: ["category", "date_created", "status"]
+                  ranking_criteria:
+                    - field: "date_created"
+                      order: "desc"
+                  min_word_size_for_1_typo: 3
+                  min_word_size_for_2_typos: 6
+                  fields_without_prefix_search: ["author"]
+                  no_typo_tolerance_fields: ["author"]
+      responses:
+        "201":
+          description: Index created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+              example:
+                message: "Index 'movies' created successfully"
+        "400":
+          description: Invalid request body or missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missing_name:
+                  summary: Missing index name
+                  value:
+                    error: "Index name is required"
+                invalid_json:
+                  summary: Invalid JSON format
+                  value:
+                    error: "Invalid request body: invalid character '}' looking for beginning of value"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Failed to create index: disk write error"
+
+    get:
+      tags:
+        - Index Management
+      summary: List all indexes
+      description: Retrieves a list of all available search indexes.
+      responses:
+        "200":
+          description: List of indexes retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  indexes:
+                    type: array
+                    items:
+                      type: string
+                    description: Array of index names
+                  count:
+                    type: integer
+                    description: Total number of indexes
+              example:
+                indexes: ["movies", "documents", "products"]
+                count: 3
+
+  /indexes/{indexName}:
+    get:
+      tags:
+        - Index Management
+      summary: Get index details
+      description: Retrieves detailed information about a specific index including its configuration settings.
+      parameters:
+        - name: indexName
+          in: path
+          required: true
+          description: Name of the index to retrieve
+          schema:
+            type: string
+          example: "movies"
+      responses:
+        "200":
+          description: Index details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IndexSettings"
+              example:
+                name: "movies"
+                searchable_fields: ["title", "cast", "genres"]
+                filterable_fields: ["year", "rating", "genres"]
+                ranking_criteria:
+                  - field: "popularity"
+                    order: "desc"
+                min_word_size_for_1_typo: 4
+                min_word_size_for_2_typos: 7
+                fields_without_prefix_search: []
+        "404":
+          description: Index not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Index 'movies' not found"
+
+    delete:
+      tags:
+        - Index Management
+      summary: Delete an index
+      description: Permanently deletes an index and all its associated data.
+      parameters:
+        - name: indexName
+          in: path
+          required: true
+          description: Name of the index to delete
+          schema:
+            type: string
+          example: "movies"
+      responses:
+        "200":
+          description: Index deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+              example:
+                message: "Index 'movies' deleted successfully"
+        "404":
+          description: Index not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Index 'movies' not found"
+        "500":
+          description: Failed to delete index
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Failed to delete index 'movies': permission denied"
+
+  /indexes/{indexName}/stats:
+    get:
+      tags:
+        - Index Management
+      summary: Get index statistics
+      description: Retrieves detailed statistics about a specific index including document count and configuration
+      parameters:
+        - name: indexName
+          in: path
+          required: true
+          description: Name of the index to get statistics for
+          schema:
+            type: string
+          example: "movies"
+      responses:
+        "200":
+          description: Index statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: Index name
+                  document_count:
+                    type: integer
+                    description: Total number of documents in the index
+                  searchable_fields:
+                    type: array
+                    items:
+                      type: string
+                    description: Fields that can be searched
+                  filterable_fields:
+                    type: array
+                    items:
+                      type: string
+                    description: Fields that can be used in filters
+                  typo_settings:
+                    type: object
+                    properties:
+                      min_word_size_for_1_typo:
+                        type: integer
+                      min_word_size_for_2_typos:
+                        type: integer
+                  field_settings:
+                    type: object
+                    properties:
+                      fields_without_prefix_search:
+                        type: array
+                        items:
+                          type: string
+                      no_typo_tolerance_fields:
+                        type: array
+                        items:
+                          type: string
+                      distinct_field:
+                        type: string
+              example:
+                name: "movies"
+                document_count: 1250
+                searchable_fields: ["title", "cast", "genres"]
+                filterable_fields: ["year", "rating", "genres"]
+                typo_settings:
+                  min_word_size_for_1_typo: 4
+                  min_word_size_for_2_typos: 7
+                field_settings:
+                  fields_without_prefix_search: []
+                  no_typo_tolerance_fields: ["genres"]
+                  distinct_field: "title"
+        "404":
+          description: Index not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Index 'movies' not found"
+
+  /indexes/{indexName}/settings:
+    patch:
+      tags:
+        - Index Management
+      summary: Update index settings
+      description: Updates specific settings of an existing index. Currently supports updating fields_without_prefix_search.
+      parameters:
+        - name: indexName
+          in: path
+          required: true
+          description: Name of the index to update
+          schema:
+            type: string
+          example: "movies"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IndexSettingsUpdate"
+            example:
+              fields_without_prefix_search: ["author", "isbn"]
+              no_typo_tolerance_fields: ["isbn", "product_code"]
+      responses:
+        "200":
+          description: Settings updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  warning:
+                    type: string
+              example:
+                message: "Settings updated successfully for index 'movies'"
+                warning: "You may need to reindex your documents for changes to FieldsWithoutPrefixSearch to take full effect."
+        "400":
+          description: Invalid request or no changes detected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Index not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Failed to update settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /indexes/{indexName}/documents:
+    put:
+      tags:
+        - Document Management
+      summary: Add or update documents
+      description: |
+        Adds new documents or updates existing documents in the specified index.
+        Accepts either a single document object or an array of documents.
+        Documents are completely schema-agnostic and will be assigned a UUID if not provided.
+        All fields depend on the index configuration (searchable_fields, filterable_fields).
+      parameters:
+        - name: indexName
+          in: path
+          required: true
+          description: Name of the index to add documents to
+          schema:
+            type: string
+          example: "movies"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/Document"
+                - type: array
+                  items:
+                    $ref: "#/components/schemas/Document"
+            examples:
+              single_document:
+                summary: Single movie document
+                value:
+                  documentID: "movie_lotr_fellowship_2001"
+                  title: "The Lord of the Rings"
+                  cast: ["Elijah Wood", "Ian McKellen", "Viggo Mortensen"]
+                  genres: ["Fantasy", "Adventure"]
+                  year: 2001
+                  rating: 8.8
+                  popularity: 95.5
+              multiple_documents:
+                summary: Multiple movie documents
+                value:
+                  - documentID: "movie_matrix_1999"
+                    title: "The Matrix"
+                    cast: ["Keanu Reeves", "Laurence Fishburne"]
+                    genres: ["Action", "Sci-Fi"]
+                    year: 1999
+                    rating: 8.7
+                  - documentID: "movie_inception_2010"
+                    title: "Inception"
+                    cast: ["Leonardo DiCaprio", "Marion Cotillard"]
+                    genres: ["Action", "Thriller", "Sci-Fi"]
+                    year: 2010
+                    rating: 8.8
+      responses:
+        "200":
+          description: Documents added/updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+              example:
+                message: "2 document(s) added/updated in index 'movies'"
+        "400":
+          description: Invalid request body or document validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalid_document:
+                  summary: Invalid document structure
+                  value:
+                    error: "Document at index 0 is not a valid object"
+                missing_documentID:
+                  summary: Missing required documentID field
+                  value:
+                    error: "Document at index 0 must have a 'documentID' field"
+                invalid_documentID:
+                  summary: Invalid documentID format
+                  value:
+                    error: "Document at index 0 has invalid or nil documentID string: 'invalid-uuid'"
+        "404":
+          description: Index not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Index 'movies' not found"
+        "500":
+          description: Failed to add documents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Failed to add documents to index 'movies': disk write error"
+
+    delete:
+      tags:
+        - Document Management
+      summary: Delete all documents from an index
+      description: |
+        Removes all documents from the specified index, clearing both the document store and inverted index.
+        This operation cannot be undone.
+      parameters:
+        - name: indexName
+          in: path
+          required: true
+          description: Name of the index to clear
+          schema:
+            type: string
+          example: "movies"
+      responses:
+        "200":
+          description: All documents deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+              example:
+                message: "All documents deleted from index 'movies'"
+        "404":
+          description: Index not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Index 'movies' not found"
+        "500":
+          description: Failed to delete documents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Failed to delete all documents from index 'movies': internal error"
+
+    get:
+      tags:
+        - Document Management
+      summary: List documents in an index
+      description: |
+        Retrieves a paginated list of documents from the specified index.
+        Supports pagination with configurable page size.
+      parameters:
+        - name: indexName
+          in: path
+          required: true
+          description: Name of the index to list documents from
+          schema:
+            type: string
+          example: "movies"
+        - name: page
+          in: query
+          required: false
+          description: Page number (starts from 1)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - name: page_size
+          in: query
+          required: false
+          description: Number of documents per page (max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          example: 10
+      responses:
+        "200":
+          description: Documents retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Document"
+                  total:
+                    type: integer
+                    description: Total number of documents in the index
+                  page:
+                    type: integer
+                    description: Current page number
+                  page_size:
+                    type: integer
+                    description: Number of documents per page
+                  pages:
+                    type: integer
+                    description: Total number of pages
+              example:
+                documents:
+                  - documentID: "movie_matrix_1999"
+                    title: "The Matrix"
+                    year: 1999
+                    rating: 8.7
+                  - documentID: "movie_inception_2010"
+                    title: "Inception"
+                    year: 2010
+                    rating: 8.8
+                total: 150
+                page: 1
+                page_size: 10
+                pages: 15
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Index not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /indexes/{indexName}/documents/{documentId}:
+    get:
+      tags:
+        - Document Management
+      summary: Get a specific document
+      description: Retrieves a specific document by its ID from the specified index
+      parameters:
+        - name: indexName
+          in: path
+          required: true
+          description: Name of the index containing the document
+          schema:
+            type: string
+          example: "movies"
+        - name: documentId
+          in: path
+          required: true
+          description: ID of the document to retrieve
+          schema:
+            type: string
+          example: "movie_matrix_1999"
+      responses:
+        "200":
+          description: Document retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+              example:
+                documentID: "movie_matrix_1999"
+                title: "The Matrix"
+                cast: ["Keanu Reeves", "Laurence Fishburne"]
+                genres: ["Action", "Sci-Fi"]
+                year: 1999
+                rating: 8.7
+        "404":
+          description: Document or index not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                document_not_found:
+                  summary: Document not found
+                  value:
+                    error: "Document 'movie_matrix_1999' not found in index 'movies'"
+                index_not_found:
+                  summary: Index not found
+                  value:
+                    error: "Index 'movies' not found"
+
+    delete:
+      tags:
+        - Document Management
+      summary: Delete a specific document
+      description: Deletes a specific document by its ID from the specified index
+      parameters:
+        - name: indexName
+          in: path
+          required: true
+          description: Name of the index containing the document
+          schema:
+            type: string
+          example: "movies"
+        - name: documentId
+          in: path
+          required: true
+          description: ID of the document to delete
+          schema:
+            type: string
+          example: "movie_matrix_1999"
+      responses:
+        "200":
+          description: Document deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+              example:
+                message: "Document 'movie_matrix_1999' deleted from index 'movies'"
+        "404":
+          description: Document or index not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                document_not_found:
+                  summary: Document not found
+                  value:
+                    error: "Document 'movie_matrix_1999' not found in index 'movies'"
+                index_not_found:
+                  summary: Index not found
+                  value:
+                    error: "Index 'movies' not found"
+        "500":
+          description: Failed to delete document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Failed to delete document 'movie_matrix_1999' from index 'movies': internal error"
+
+  /indexes/{indexName}/_search:
+    post:
+      tags:
+        - Search
+      summary: Search documents
+      description: |
+        Performs a full-text search across the specified index with support for:
+        - Typo tolerance (configurable Levenshtein distance)
+        - Advanced filtering with multiple operators
+        - Pagination
+        - Ranking and sorting
+        - Field-specific matching
+      parameters:
+        - name: indexName
+          in: path
+          required: true
+          description: Name of the index to search
+          schema:
+            type: string
+          example: "movies"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequest"
+            examples:
+              basic_search:
+                summary: Basic text search
+                value:
+                  query: "lord rings"
+                  page: 1
+                  page_size: 10
+              filtered_search:
+                summary: Search with filters
+                value:
+                  query: "action"
+                  filters:
+                    year_gte: 2000
+                    rating_gte: 8.0
+                    genres_contains: "Action"
+                  page: 1
+                  page_size: 5
+              advanced_filters:
+                summary: Advanced filtering examples
+                value:
+                  query: "sci-fi"
+                  filters:
+                    year_gte: 1990
+                    year_lte: 2020
+                    rating_gt: 7.5
+                    cast_contains: "Keanu"
+                    genres_contains_any_of: ["Sci-Fi", "Thriller"]
+                  page: 1
+                  page_size: 20
+      responses:
+        "200":
+          description: Search completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResult"
+              example:
+                hits:
+                  - document:
+                      documentID: "movie_lotr_fellowship_2001"
+                      title: "The Lord of the Rings"
+                      cast: ["Elijah Wood", "Ian McKellen"]
+                      genres: ["Fantasy", "Adventure"]
+                      year: 2001
+                      rating: 8.8
+                    score: 12.5
+                    field_matches:
+                      title: ["lord", "rings"]
+                    hit_info:
+                      num_typos: 0
+                      number_exact_words: 2
+                total: 1
+                page: 1
+                page_size: 10
+                took: 15
+                query_id: "550e8400-e29b-41d4-a716-446655440000"
+        "400":
+          description: Invalid search request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Invalid search request body: invalid JSON"
+        "404":
+          description: Index not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Index 'movies' not found"
+        "500":
+          description: Search operation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Error performing search on index 'movies': internal error"
+
+components:
+  schemas:
+    IndexSettings:
+      type: object
+      required:
+        - name
+        - searchable_fields
+      properties:
+        name:
+          type: string
+          description: Unique name for the index
+          example: "movies"
+        searchable_fields:
+          type: array
+          items:
+            type: string
+          description: |
+            Fields that can be searched, in priority order. 
+            IMPORTANT: Order matters! The search engine will fully exhaust each field 
+            (exact matches + typo tolerance) before proceeding to the next field.
+          example: ["title", "cast", "genres"]
+        filterable_fields:
+          type: array
+          items:
+            type: string
+          description: Fields that can be used in filters
+          example: ["year", "rating", "genres"]
+        ranking_criteria:
+          type: array
+          items:
+            $ref: "#/components/schemas/RankingCriterion"
+          description: Ordered list of ranking criteria
+        min_word_size_for_1_typo:
+          type: integer
+          description: Minimum word length to allow 1 typo
+          default: 4
+          example: 4
+        min_word_size_for_2_typos:
+          type: integer
+          description: Minimum word length to allow 2 typos
+          default: 7
+          example: 7
+        fields_without_prefix_search:
+          type: array
+          items:
+            type: string
+          description: Fields for which prefix/n-gram search is disabled
+          example: ["author", "isbn"]
+        no_typo_tolerance_fields:
+          type: array
+          items:
+            type: string
+          description: Fields for which typo tolerance is disabled (only exact matches)
+          example: ["isbn", "product_code"]
+        distinct_field:
+          type: string
+          description: Field to use for deduplication to avoid returning duplicate documents
+          example: "title"
+
+    RankingCriterion:
+      type: object
+      required:
+        - field
+        - order
+      properties:
+        field:
+          type: string
+          description: Field name to rank by
+          example: "popularity"
+        order:
+          type: string
+          enum: ["asc", "desc"]
+          description: Sort order
+          example: "desc"
+
+    IndexSettingsUpdate:
+      type: object
+      properties:
+        fields_without_prefix_search:
+          type: array
+          items:
+            type: string
+          description: Fields for which prefix/n-gram search should be disabled
+          example: ["author", "isbn"]
+        no_typo_tolerance_fields:
+          type: array
+          items:
+            type: string
+          description: Fields for which typo tolerance should be disabled (only exact matches)
+          example: ["isbn", "product_code"]
+        distinct_field:
+          type: string
+          description: Field to use for deduplication to avoid returning duplicate documents
+          example: "title"
+
+    Document:
+      type: object
+      required:
+        - documentID
+      properties:
+        documentID:
+          type: string
+          description: Unique identifier for the document (required) - can be any non-empty string
+          example: "022ae9a1-d2ac-3238-b686-96c2a5ce26ba_en-US_MERCHANDISED_title"
+      additionalProperties: true
+      description: |
+        Schema-agnostic document that can contain any fields. The documentID is the only required field
+        for document identification and can be any non-empty string. All other fields depend on index configuration.
+      example:
+        documentID: "product_12345_variant_red"
+        title: "The Matrix"
+        cast: ["Keanu Reeves", "Laurence Fishburne"]
+        genres: ["Action", "Sci-Fi"]
+        year: 1999
+        rating: 8.7
+        popularity: 92.0
+
+    SearchRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: Search query string
+          example: "lord rings"
+        filters:
+          type: object
+          additionalProperties: true
+          description: |
+            Filter criteria using field names with optional operators:
+            - Exact match: "field": "value"
+            - Numeric: field_gt, field_gte, field_lt, field_lte, field_ne
+            - String: field_contains, field_ncontains
+            - Array: field_contains, field_contains_any_of
+          example:
+            year_gte: 2000
+            rating_gt: 8.0
+            genres_contains: "Action"
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Page number for pagination
+          example: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+          description: Number of results per page
+          example: 10
+
+    SearchResult:
+      type: object
+      properties:
+        hits:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+          description: Array of search results
+        total:
+          type: integer
+          description: Total number of matching documents
+          example: 25
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        page_size:
+          type: integer
+          description: Number of results per page
+          example: 10
+        took:
+          type: integer
+          description: Search time in milliseconds
+          example: 15
+        query_id:
+          type: string
+          format: uuid
+          description: Unique identifier for this search query
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+    SearchHit:
+      type: object
+      properties:
+        document:
+          $ref: "#/components/schemas/Document"
+        score:
+          type: number
+          format: float
+          description: Relevance score for the document
+          example: 12.5
+        field_matches:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Fields and terms that matched the query
+          example:
+            title: ["lord", "rings"]
+            cast: ["elijah"]
+        hit_info:
+          $ref: "#/components/schemas/HitInfo"
+
+    HitInfo:
+      type: object
+      properties:
+        num_typos:
+          type: integer
+          description: Number of typos corrected in the match
+          example: 0
+        number_exact_words:
+          type: integer
+          description: Number of exact word matches
+          example: 2
+
+    SuccessMessage:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Success message
+          example: "Operation completed successfully"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message describing what went wrong
+          example: "Invalid request body"
+
+  examples:
+    MovieIndex:
+      summary: Movie database index
+      value:
+        name: "movies"
+        searchable_fields: ["title", "cast", "plot", "genres"]
+        filterable_fields: ["year", "rating", "director", "genres"]
+        ranking_criteria:
+          - field: "popularity"
+            order: "desc"
+          - field: "rating"
+            order: "desc"
+        min_word_size_for_1_typo: 4
+        min_word_size_for_2_typos: 7
+
+    ProductIndex:
+      summary: E-commerce product index
+      value:
+        name: "products"
+        searchable_fields: ["name", "description", "brand", "category"]
+        filterable_fields: ["price", "brand", "category", "in_stock"]
+        ranking_criteria:
+          - field: "popularity"
+            order: "desc"
+          - field: "price"
+            order: "asc"
+        min_word_size_for_1_typo: 3
+        min_word_size_for_2_typos: 6
+        fields_without_prefix_search: ["brand"]
