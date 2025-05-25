@@ -88,10 +88,7 @@ func (api *API) CreateIndexHandler(c *gin.Context) {
 		return
 	}
 
-	// Default ranking if not provided
-	if len(settings.RankingCriteria) == 0 {
-		// Use search service default (score-based) ranking
-	}
+	// Default ranking if not provided - search service will use default (score-based) ranking
 
 	// Create index asynchronously
 	var jobID string
