@@ -20,7 +20,7 @@ func newTestIndexSettings() *config.IndexSettings {
 		Name:                      "test_search_index",
 		SearchableFields:          []string{"title", "description", "tags"},
 		FilterableFields:          []string{"genre", "year", "rating", "is_available", "release_date", "features"},
-		RankingCriteria:           []config.RankingCriterion{{"~score", "desc"}, {"popularity", "desc"}},
+		RankingCriteria:           []config.RankingCriterion{{Field: "~score", Order: "desc"}, {Field: "popularity", Order: "desc"}},
 		MinWordSizeFor1Typo:       4,
 		MinWordSizeFor2Typos:      7,
 		FieldsWithoutPrefixSearch: []string{}, // N-grams enabled for all searchable fields by default for search tests

@@ -18,7 +18,7 @@ func newTestSettings() *config.IndexSettings {
 		Name:                 "test_index",
 		SearchableFields:     []string{"title", "description", "tags"},
 		FilterableFields:     []string{"genre", "year"},
-		RankingCriteria:      []config.RankingCriterion{{"~score", "desc"}}, // Generic relevance score
+		RankingCriteria:      []config.RankingCriterion{{Field: "~score", Order: "desc"}}, // Generic relevance score
 		MinWordSizeFor1Typo:  4,
 		MinWordSizeFor2Typos: 7,
 		// Default: N-grams for "title", not for "description", "tags"
