@@ -849,9 +849,7 @@ func (e *Engine) executeDeleteIndexJob(ctx context.Context, name string, jobID s
 
 	e.jobManager.UpdateJobProgress(jobID, 0, 2, "Removing index from memory")
 
-	if _, exists := e.indexes[name]; exists {
-		delete(e.indexes, name)
-	}
+	delete(e.indexes, name)
 
 	e.jobManager.UpdateJobProgress(jobID, 1, 2, "Deleting index files from disk")
 
