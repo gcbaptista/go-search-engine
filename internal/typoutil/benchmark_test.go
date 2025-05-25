@@ -9,7 +9,7 @@ import (
 
 // Generate test data for benchmarks
 func generateTestTerms(count int, avgLength int) []string {
-	rand.Seed(time.Now().UnixNano())
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	terms := make([]string, count)
 
 	words := []string{
@@ -26,18 +26,18 @@ func generateTestTerms(count int, avgLength int) []string {
 
 	for i := 0; i < count; i++ {
 		// Sometimes use existing words, sometimes generate random strings
-		if rand.Float32() < 0.7 {
-			terms[i] = words[rand.Intn(len(words))]
+		if rng.Float32() < 0.7 {
+			terms[i] = words[rng.Intn(len(words))]
 		} else {
 			// Generate random string
-			length := avgLength + rand.Intn(5) - 2 // avgLength ± 2
+			length := avgLength + rng.Intn(5) - 2 // avgLength ± 2
 			if length < 3 {
 				length = 3
 			}
 
 			runes := make([]rune, length)
 			for j := 0; j < length; j++ {
-				runes[j] = rune('a' + rand.Intn(26))
+				runes[j] = rune('a' + rng.Intn(26))
 			}
 			terms[i] = string(runes)
 		}

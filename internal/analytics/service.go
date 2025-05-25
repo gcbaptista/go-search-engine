@@ -404,16 +404,6 @@ func (s *Service) loadData() error {
 	return nil
 }
 
-// saveData saves analytics data to file
-func (s *Service) saveData() error {
-	s.mutex.RLock()
-	eventsCopy := make([]model.SearchEvent, len(s.events))
-	copy(eventsCopy, s.events)
-	s.mutex.RUnlock()
-
-	return s.saveDataWithEvents(eventsCopy)
-}
-
 // saveDataWithEvents saves the provided events to file (thread-safe)
 func (s *Service) saveDataWithEvents(events []model.SearchEvent) error {
 	// Create directory if it doesn't exist
