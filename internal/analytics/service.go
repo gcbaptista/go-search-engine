@@ -3,7 +3,6 @@ package analytics
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -59,12 +58,16 @@ func (s *Service) TrackSearchEvent(event model.SearchEvent) error {
 		s.events = s.events[len(s.events)-maxEventsToKeep:]
 	}
 
+	// Make a copy of events for async saving to avoid data races
+	eventsCopy := make([]model.SearchEvent, len(s.events))
+	copy(eventsCopy, s.events)
+
 	// Persist data asynchronously
-	go func() {
-		if err := s.saveData(); err != nil {
+	go func(events []model.SearchEvent) {
+		if err := s.saveDataWithEvents(events); err != nil {
 			log.Printf("Warning: Failed to save analytics data: %v", err)
 		}
-	}()
+	}(eventsCopy)
 
 	return nil
 }
@@ -403,18 +406,28 @@ func (s *Service) loadData() error {
 
 // saveData saves analytics data to file
 func (s *Service) saveData() error {
+	s.mutex.RLock()
+	eventsCopy := make([]model.SearchEvent, len(s.events))
+	copy(eventsCopy, s.events)
+	s.mutex.RUnlock()
+
+	return s.saveDataWithEvents(eventsCopy)
+}
+
+// saveDataWithEvents saves the provided events to file (thread-safe)
+func (s *Service) saveDataWithEvents(events []model.SearchEvent) error {
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(s.dataFilePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create analytics directory: %v", err)
 	}
 
-	data, err := json.MarshalIndent(s.events, "", "  ")
+	data, err := json.MarshalIndent(events, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal analytics data: %v", err)
 	}
 
-	if err := ioutil.WriteFile(s.dataFilePath, data, 0644); err != nil {
+	if err := os.WriteFile(s.dataFilePath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write analytics file: %v", err)
 	}
 

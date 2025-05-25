@@ -33,6 +33,8 @@ func TestAnalyticsService_TrackSearchEvent(t *testing.T) {
 	}
 
 	service := NewService(mockIndexManager)
+	// Clear any existing events from previous tests
+	service.events = make([]model.SearchEvent, 0)
 
 	event := model.SearchEvent{
 		IndexName:    "test_index",
@@ -67,6 +69,8 @@ func TestAnalyticsService_GetDashboardData(t *testing.T) {
 	}
 
 	service := NewService(mockIndexManager)
+	// Clear any existing events from previous tests
+	service.events = make([]model.SearchEvent, 0)
 
 	// Add some test events
 	events := []model.SearchEvent{
