@@ -7,6 +7,18 @@ import (
 	"github.com/gcbaptista/go-search-engine/model"
 )
 
+// JobMetricsData represents job metrics data without mutex (safe for copying)
+type JobMetricsData struct {
+	JobsCreated          int64                     `json:"jobs_created"`
+	JobsCompleted        int64                     `json:"jobs_completed"`
+	JobsFailed           int64                     `json:"jobs_failed"`
+	TotalExecutionTime   time.Duration             `json:"total_execution_time_ns"`
+	AverageExecutionTime time.Duration             `json:"average_execution_time_ns"`
+	JobsByType           map[model.JobType]int64   `json:"jobs_by_type"`
+	JobsByStatus         map[model.JobStatus]int64 `json:"jobs_by_status"`
+	LastUpdated          time.Time                 `json:"last_updated"`
+}
+
 // JobMetrics tracks performance metrics for job operations
 type JobMetrics struct {
 	mu                   sync.RWMutex
@@ -90,8 +102,8 @@ func (m *JobMetrics) RecordJobFailed(jobType model.JobType) {
 	m.LastUpdated = time.Now()
 }
 
-// GetMetrics returns a copy of current metrics
-func (m *JobMetrics) GetMetrics() JobMetrics {
+// GetMetrics returns a copy of current metrics without mutex (safe for copying)
+func (m *JobMetrics) GetMetrics() JobMetricsData {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -106,7 +118,7 @@ func (m *JobMetrics) GetMetrics() JobMetrics {
 		jobsByStatus[k] = v
 	}
 
-	return JobMetrics{
+	return JobMetricsData{
 		JobsCreated:          m.JobsCreated,
 		JobsCompleted:        m.JobsCompleted,
 		JobsFailed:           m.JobsFailed,

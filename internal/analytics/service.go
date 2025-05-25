@@ -389,7 +389,7 @@ func (s *Service) loadData() error {
 		return nil // File doesn't exist yet, that's okay
 	}
 
-	data, err := ioutil.ReadFile(s.dataFilePath)
+	data, err := os.ReadFile(s.dataFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to read analytics file: %v", err)
 	}

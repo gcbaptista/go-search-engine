@@ -207,14 +207,6 @@ func CalculateDamerauLevenshteinDistanceWithLimit(a, b string, maxDistance int) 
 	return prevRow[lenB]
 }
 
-// min is a helper function to find the minimum of two integers.
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // min3 is a helper function to find the minimum of three integers
 func min3(a, b, c int) int {
 	if a < b {

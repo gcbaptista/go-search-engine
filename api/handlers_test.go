@@ -106,7 +106,9 @@ func TestAddDocumentsHandler(t *testing.T) {
 		SearchableFields: []string{"Title", "content"}, // Use "Title" to match document field
 		FilterableFields: []string{"category"},
 	}
-	eng.CreateIndex(indexSettings)
+	if err := eng.CreateIndex(indexSettings); err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
 
 	tests := []struct {
 		name           string
@@ -174,7 +176,9 @@ func TestSearchHandler(t *testing.T) {
 		SearchableFields: []string{"Title", "content"}, // Use "Title" to match document field
 		FilterableFields: []string{"category"},
 	}
-	eng.CreateIndex(indexSettings)
+	if err := eng.CreateIndex(indexSettings); err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
 
 	indexAccessor, _ := eng.GetIndex("test_search_handler")
 	docs := []model.Document{
@@ -185,7 +189,9 @@ func TestSearchHandler(t *testing.T) {
 			"category":   "programming",
 		},
 	}
-	indexAccessor.AddDocuments(docs)
+	if err := indexAccessor.AddDocuments(docs); err != nil {
+		t.Fatalf("Failed to add documents: %v", err)
+	}
 
 	tests := []struct {
 		name           string
@@ -285,7 +291,9 @@ func TestGetIndexHandler(t *testing.T) {
 		Name:             "test_get_handler",
 		SearchableFields: []string{"Title"},
 	}
-	eng.CreateIndex(indexSettings)
+	if err := eng.CreateIndex(indexSettings); err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
 
 	tests := []struct {
 		name           string
@@ -327,7 +335,9 @@ func TestDeleteIndexHandler(t *testing.T) {
 		SearchableFields: []string{"Title"}, // Use "Title" to match document field
 		FilterableFields: []string{"category"},
 	}
-	eng.CreateIndex(indexSettings)
+	if err := eng.CreateIndex(indexSettings); err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
 
 	tests := []struct {
 		name           string
@@ -376,7 +386,9 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 		NoTypoToleranceFields:     []string{},
 		DistinctField:             "",
 	}
-	eng.CreateIndex(indexSettings)
+	if err := eng.CreateIndex(indexSettings); err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
 
 	// Add some test documents to verify reindexing works
 	indexAccessor, _ := eng.GetIndex("test_update_settings")
@@ -398,7 +410,9 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 			"popularity": 87.3,
 		},
 	}
-	indexAccessor.AddDocuments(docs)
+	if err := indexAccessor.AddDocuments(docs); err != nil {
+		t.Fatalf("Failed to add documents: %v", err)
+	}
 
 	tests := []struct {
 		name              string
@@ -514,7 +528,10 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 
 			if tt.expectError {
 				var errorResp map[string]interface{}
-				json.Unmarshal(w.Body.Bytes(), &errorResp)
+				if err := json.Unmarshal(w.Body.Bytes(), &errorResp); err != nil {
+					t.Errorf("Failed to unmarshal error response: %v", err)
+					return
+				}
 				if errorResp["error"] == nil {
 					t.Errorf("Expected error in response, but got none")
 				}
@@ -526,7 +543,10 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 				}
 			} else {
 				var response map[string]interface{}
-				json.Unmarshal(w.Body.Bytes(), &response)
+				if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+					t.Errorf("Failed to unmarshal response: %v", err)
+					return
+				}
 
 				if response["message"] == nil {
 					t.Errorf("Expected success message in response")
@@ -561,14 +581,18 @@ func TestRenameIndexHandler(t *testing.T) {
 		MinWordSizeFor1Typo:  4,
 		MinWordSizeFor2Typos: 7,
 	}
-	eng.CreateIndex(indexSettings1)
+	if err := eng.CreateIndex(indexSettings1); err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
 
 	indexSettings2 := config.IndexSettings{
 		Name:             "existing_target",
 		SearchableFields: []string{"title"},
 		FilterableFields: []string{"status"},
 	}
-	eng.CreateIndex(indexSettings2)
+	if err := eng.CreateIndex(indexSettings2); err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
 
 	// Add some documents to the source index to verify data persistence
 	indexAccessor, _ := eng.GetIndex("test_rename_source")
@@ -586,7 +610,9 @@ func TestRenameIndexHandler(t *testing.T) {
 			"category":   "test",
 		},
 	}
-	indexAccessor.AddDocuments(docs)
+	if err := indexAccessor.AddDocuments(docs); err != nil {
+		t.Fatalf("Failed to add documents: %v", err)
+	}
 
 	tests := []struct {
 		name           string

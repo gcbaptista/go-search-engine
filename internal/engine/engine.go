@@ -597,9 +597,9 @@ func (e *Engine) DeleteIndex(name string) error {
 		if _, err := os.Stat(indexPath); os.IsNotExist(err) {
 			return fmt.Errorf("index named '%s' not found in memory or on disk", name)
 		}
-	} else {
-		delete(e.indexes, name)
 	}
+	// Safe to call delete even if key doesn't exist
+	delete(e.indexes, name)
 
 	indexPath := filepath.Join(e.dataDir, name)
 	if err := os.RemoveAll(indexPath); err != nil {
@@ -711,8 +711,8 @@ func (e *Engine) PersistIndexData(indexName string) error {
 	return nil
 }
 
-// GetJobMetrics returns current job performance metrics
-func (e *Engine) GetJobMetrics() jobs.JobMetrics {
+// GetJobMetrics returns current job performance metrics (returns a copy without mutex)
+func (e *Engine) GetJobMetrics() jobs.JobMetricsData {
 	return e.jobManager.GetMetrics()
 }
 

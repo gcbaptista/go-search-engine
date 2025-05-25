@@ -123,42 +123,6 @@ func (tf *TypoFinder) findTyposWithDualCriteria(term string, maxDistance int, ma
 	return typos
 }
 
-// findTyposWithLimits implements the core typo finding logic with result limits
-func (tf *TypoFinder) findTyposWithLimits(term string, maxDistance int, maxResults int) []string {
-	termLen := len([]rune(term))
-	typos := make([]string, 0, maxResults) // Pre-allocate with expected size
-
-	for _, indexedTerm := range tf.indexedTerms {
-		// Skip self
-		if indexedTerm == term {
-			continue
-		}
-
-		// Length-based early filtering: if length difference > maxDistance, skip
-		indexedTermLen := len([]rune(indexedTerm))
-		lengthDiff := indexedTermLen - termLen
-		if lengthDiff < 0 {
-			lengthDiff = -lengthDiff
-		}
-		if lengthDiff > maxDistance {
-			continue
-		}
-
-		// Calculate actual Levenshtein distance
-		dist := CalculateDamerauLevenshteinDistanceWithLimit(term, indexedTerm, maxDistance)
-		if dist > 0 && dist <= maxDistance {
-			typos = append(typos, indexedTerm)
-
-			// Early termination if we have enough results
-			if maxResults > 0 && len(typos) >= maxResults {
-				break
-			}
-		}
-	}
-
-	return typos
-}
-
 // GenerateTyposSimple provides a simple interface similar to the original function
 // but with early termination and length filtering
 func GenerateTyposSimple(term string, allIndexedTerms []string, maxDistance int) []string {

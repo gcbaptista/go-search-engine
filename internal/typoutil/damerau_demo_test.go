@@ -140,12 +140,3 @@ func init() {
 	// Helper function to repeat strings (Go doesn't have this built-in for strings)
 	// This is used in the test output formatting
 }
-
-// Helper function to repeat a character
-func repeatChar(char string, count int) string {
-	result := ""
-	for i := 0; i < count; i++ {
-		result += char
-	}
-	return result
-}

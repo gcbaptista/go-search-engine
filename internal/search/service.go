@@ -78,7 +78,7 @@ func (s *Service) Search(query services.SearchQuery) (services.SearchResult, err
 
 	// Determine effective searchable fields based on query and index settings
 	var effectiveSearchableFields []string
-	isFieldAllowed := func(fieldName string) bool { return true } // Default: allow all fields
+	var isFieldAllowed func(string) bool
 
 	if len(query.RestrictSearchableFields) > 0 {
 		// RestrictSearchableFields provided - validate and AND with configured searchable fields

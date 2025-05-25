@@ -250,7 +250,7 @@ func (m *Manager) CleanupOldJobs(maxAge time.Duration) {
 }
 
 // GetMetrics returns current job performance metrics
-func (m *Manager) GetMetrics() JobMetrics {
+func (m *Manager) GetMetrics() JobMetricsData {
 	return m.metrics.GetMetrics()
 }
 

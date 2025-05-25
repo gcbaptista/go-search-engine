@@ -89,7 +89,9 @@ func TestAnalyticsService_GetDashboardData(t *testing.T) {
 	}
 
 	for _, event := range events {
-		service.TrackSearchEvent(event)
+		if err := service.TrackSearchEvent(event); err != nil {
+			t.Fatalf("Failed to track search event: %v", err)
+		}
 	}
 
 	dashboard, err := service.GetDashboardData()

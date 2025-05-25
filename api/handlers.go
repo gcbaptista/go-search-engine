@@ -956,6 +956,7 @@ func (api *API) ListJobsHandler(c *gin.Context) {
 // GetJobMetricsHandler handles requests to get job performance metrics
 func (api *API) GetJobMetricsHandler(c *gin.Context) {
 	if engineWithMetrics, ok := api.engine.(*engine.Engine); ok {
+		// Get metrics (already returns a copy without mutex)
 		metrics := engineWithMetrics.GetJobMetrics()
 
 		// Add computed metrics
