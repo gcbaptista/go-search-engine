@@ -22,7 +22,7 @@ type HitResult struct {
 }
 
 type SearchResult struct {
-	Hits     []HitResult `json:"hits"` // Changed from []model.Document
+	Hits     []HitResult `json:"hits"`
 	Total    int         `json:"total"`
 	Page     int         `json:"page"`
 	PageSize int         `json:"page_size"`
@@ -31,10 +31,14 @@ type SearchResult struct {
 }
 
 type SearchQuery struct {
-	QueryString string
-	Filters     map[string]interface{} // e.g., {"genre": "Action", "year_gt": 2000}
-	Page        int
-	PageSize    int
+	QueryString              string
+	Filters                  map[string]interface{} // e.g., {"genre": "Action", "year_gt": 2000}
+	Page                     int
+	PageSize                 int
+	RestrictSearchableFields []string `json:"restrict_searchable_fields,omitempty"` // Optional: subset of searchable fields to search in
+	RetrivableFields         []string `json:"retrivable_fields,omitempty"`          // Optional: subset of document fields to return in results
+	MinWordSizeFor1Typo      *int     `json:"min_word_size_for_1_typo,omitempty"`   // Optional: override index setting for minimum word size for 1 typo
+	MinWordSizeFor2Typos     *int     `json:"min_word_size_for_2_typos,omitempty"`  // Optional: override index setting for minimum word size for 2 typos
 }
 
 // Indexer defines operations for adding data to an index
@@ -55,9 +59,28 @@ type IndexManager interface {
 	GetIndex(name string) (IndexAccessor, error) // IndexAccessor combines Indexer and Searcher
 	GetIndexSettings(name string) (config.IndexSettings, error)
 	UpdateIndexSettings(name string, settings config.IndexSettings) error
+	RenameIndex(oldName, newName string) error
 	DeleteIndex(name string) error
 	ListIndexes() []string
 	PersistIndexData(indexName string) error
+}
+
+// IndexManagerWithReindex extends IndexManager with reindexing capabilities for settings updates
+type IndexManagerWithReindex interface {
+	IndexManager
+	UpdateIndexSettingsWithReindex(name string, settings config.IndexSettings) error
+}
+
+// IndexManagerWithAsyncReindex extends IndexManager with async reindexing capabilities
+type IndexManagerWithAsyncReindex interface {
+	IndexManager
+	UpdateIndexSettingsWithAsyncReindex(name string, settings config.IndexSettings) (string, error) // Returns job ID
+}
+
+// JobManager defines operations for managing background jobs
+type JobManager interface {
+	GetJob(jobID string) (*model.Job, error)
+	ListJobs(indexName string, status *model.JobStatus) []*model.Job
 }
 
 type IndexAccessor interface {

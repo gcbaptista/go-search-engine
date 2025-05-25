@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// TypoFinder provides optimized typo tolerance functionality
+// TypoFinder provides typo tolerance functionality with caching and time limits
 type TypoFinder struct {
 	// Precomputed list of all indexed terms (updated when index changes)
 	indexedTerms []string
@@ -20,7 +20,7 @@ type TypoFinder struct {
 	maxCacheSize int
 }
 
-// NewTypoFinder creates a new optimized typo finder
+// NewTypoFinder creates a new typo finder with caching
 func NewTypoFinder(indexedTerms []string) *TypoFinder {
 	return &TypoFinder{
 		indexedTerms: make([]string, len(indexedTerms)),
@@ -40,13 +40,8 @@ func (tf *TypoFinder) UpdateIndexedTerms(indexedTerms []string) {
 	tf.cacheMu.Unlock()
 }
 
-// GenerateTypos finds typos with caching and optimizations
+// GenerateTypos finds typos with caching and time limits
 func (tf *TypoFinder) GenerateTypos(term string, maxDistance int, maxResults int) []string {
-	return tf.GenerateTyposWithTimeLimit(term, maxDistance, maxResults, 50*time.Millisecond)
-}
-
-// GenerateTyposOptimized finds typos with multiple optimizations
-func (tf *TypoFinder) GenerateTyposOptimized(term string, maxDistance int, maxResults int) []string {
 	return tf.GenerateTyposWithTimeLimit(term, maxDistance, maxResults, 50*time.Millisecond)
 }
 
@@ -114,7 +109,7 @@ func (tf *TypoFinder) findTyposWithDualCriteria(term string, maxDistance int, ma
 		}
 
 		// Calculate actual Levenshtein distance
-		dist := CalculateLevenshteinDistanceOptimized(term, indexedTerm, maxDistance)
+		dist := CalculateDamerauLevenshteinDistanceWithLimit(term, indexedTerm, maxDistance)
 		if dist > 0 && dist <= maxDistance {
 			typos = append(typos, indexedTerm)
 
@@ -128,8 +123,8 @@ func (tf *TypoFinder) findTyposWithDualCriteria(term string, maxDistance int, ma
 	return typos
 }
 
-// findTyposWithOptimizations implements the core optimized typo finding logic
-func (tf *TypoFinder) findTyposWithOptimizations(term string, maxDistance int, maxResults int) []string {
+// findTyposWithLimits implements the core typo finding logic with result limits
+func (tf *TypoFinder) findTyposWithLimits(term string, maxDistance int, maxResults int) []string {
 	termLen := len([]rune(term))
 	typos := make([]string, 0, maxResults) // Pre-allocate with expected size
 
@@ -150,7 +145,7 @@ func (tf *TypoFinder) findTyposWithOptimizations(term string, maxDistance int, m
 		}
 
 		// Calculate actual Levenshtein distance
-		dist := CalculateLevenshteinDistanceOptimized(term, indexedTerm, maxDistance)
+		dist := CalculateDamerauLevenshteinDistanceWithLimit(term, indexedTerm, maxDistance)
 		if dist > 0 && dist <= maxDistance {
 			typos = append(typos, indexedTerm)
 
@@ -164,75 +159,8 @@ func (tf *TypoFinder) findTyposWithOptimizations(term string, maxDistance int, m
 	return typos
 }
 
-// CalculateLevenshteinDistanceOptimized calculates Levenshtein distance with early termination
-func CalculateLevenshteinDistanceOptimized(a, b string, maxDistance int) int {
-	runesA := []rune(a)
-	runesB := []rune(b)
-
-	lenA := len(runesA)
-	lenB := len(runesB)
-
-	// Early termination: if length difference > maxDistance, return early
-	lengthDiff := lenA - lenB
-	if lengthDiff < 0 {
-		lengthDiff = -lengthDiff
-	}
-	if lengthDiff > maxDistance {
-		return maxDistance + 1 // Return a value > maxDistance to indicate no match
-	}
-
-	if lenA == 0 {
-		return lenB
-	}
-	if lenB == 0 {
-		return lenA
-	}
-
-	// Use two rows instead of full matrix to save memory (space optimization)
-	prevRow := make([]int, lenB+1)
-	currRow := make([]int, lenB+1)
-
-	// Initialize first row
-	for j := 0; j <= lenB; j++ {
-		prevRow[j] = j
-	}
-
-	for i := 1; i <= lenA; i++ {
-		currRow[0] = i
-		minInRow := i // Track minimum value in current row for early termination
-
-		for j := 1; j <= lenB; j++ {
-			cost := 0
-			if runesA[i-1] != runesB[j-1] {
-				cost = 1
-			}
-
-			deletion := prevRow[j] + 1
-			insertion := currRow[j-1] + 1
-			substitution := prevRow[j-1] + cost
-
-			currRow[j] = min(deletion, insertion, substitution)
-
-			if currRow[j] < minInRow {
-				minInRow = currRow[j]
-			}
-		}
-
-		// Early termination: if minimum value in current row > maxDistance,
-		// the final result will definitely be > maxDistance
-		if minInRow > maxDistance {
-			return maxDistance + 1
-		}
-
-		// Swap rows
-		prevRow, currRow = currRow, prevRow
-	}
-
-	return prevRow[lenB]
-}
-
 // GenerateTyposSimple provides a simple interface similar to the original function
-// but with optimizations
+// but with early termination and length filtering
 func GenerateTyposSimple(term string, allIndexedTerms []string, maxDistance int) []string {
 	if maxDistance <= 0 || term == "" || len(allIndexedTerms) == 0 {
 		return []string{}
@@ -256,7 +184,7 @@ func GenerateTyposSimple(term string, allIndexedTerms []string, maxDistance int)
 			continue
 		}
 
-		dist := CalculateLevenshteinDistanceOptimized(term, indexedTerm, maxDistance)
+		dist := CalculateDamerauLevenshteinDistanceWithLimit(term, indexedTerm, maxDistance)
 		if dist > 0 && dist <= maxDistance {
 			typos = append(typos, indexedTerm)
 		}
