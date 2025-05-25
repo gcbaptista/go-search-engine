@@ -128,7 +128,7 @@ func TestSearch_TermLogic(t *testing.T) {
 		if err != nil {
 			t.Errorf("Search() error = %v", err)
 		}
-	
+
 		// Expected: doc1 should be among candidates for "hello".
 	})
 
@@ -723,18 +723,20 @@ func TestRestrictSearchableFields(t *testing.T) {
 		t.Fatalf("Failed to add documents: %v", err)
 	}
 
-	t.Run("error when RestrictSearchableFields is not provided", func(t *testing.T) {
+	t.Run("success when RestrictSearchableFields is not provided - uses all configured fields", func(t *testing.T) {
 		query := services.SearchQuery{
 			QueryString: "Hello",
-			// RestrictSearchableFields not provided
+			// RestrictSearchableFields not provided - should use all configured searchable fields
 		}
 
-		_, err := service.Search(query)
-		if err == nil {
-			t.Error("Expected error when RestrictSearchableFields is not provided, got nil")
+		result, err := service.Search(query)
+		if err != nil {
+			t.Errorf("Expected success when RestrictSearchableFields is not provided, got error: %v", err)
 		}
-		if !strings.Contains(err.Error(), "restrictSearchableFields must be specified") {
-			t.Errorf("Expected error about restrictSearchableFields being required, got: %v", err)
+
+		// Should find both documents since "Hello" appears in both title and description
+		if len(result.Hits) != 2 {
+			t.Errorf("Expected 2 hits when using all configured fields, got %d", len(result.Hits))
 		}
 	})
 

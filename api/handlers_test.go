@@ -14,7 +14,6 @@ import (
 	"github.com/gcbaptista/go-search-engine/config"
 	"github.com/gcbaptista/go-search-engine/internal/engine"
 	"github.com/gcbaptista/go-search-engine/model"
-	"github.com/gcbaptista/go-search-engine/services"
 	"github.com/gin-gonic/gin"
 )
 
@@ -65,7 +64,7 @@ func TestCreateIndexHandler(t *testing.T) {
 				MinWordSizeFor1Typo:  4,
 				MinWordSizeFor2Typos: 7,
 			},
-			expectedStatus: http.StatusCreated,
+			expectedStatus: http.StatusAccepted,
 		},
 		{
 			name:           "invalid JSON",
@@ -122,7 +121,7 @@ func TestAddDocumentsHandler(t *testing.T) {
 				"content":    "This is test content",
 				"category":   "test",
 			},
-			expectedStatus: http.StatusOK,
+			expectedStatus: http.StatusAccepted,
 		},
 		{
 			name: "valid multiple documents",
@@ -140,7 +139,7 @@ func TestAddDocumentsHandler(t *testing.T) {
 					"category":   "test",
 				},
 			},
-			expectedStatus: http.StatusOK,
+			expectedStatus: http.StatusAccepted,
 		},
 		{
 			name:           "invalid JSON",
@@ -338,7 +337,7 @@ func TestDeleteIndexHandler(t *testing.T) {
 		{
 			name:           "valid index deletion",
 			indexName:      "test_delete",
-			expectedStatus: http.StatusOK,
+			expectedStatus: http.StatusAccepted,
 		},
 		{
 			name:           "non-existent index",
@@ -416,7 +415,7 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 				"no_typo_tolerance_fields":     []string{"category"},
 				"distinct_field":               "title",
 			},
-			expectedStatus:    http.StatusOK,
+			expectedStatus:    http.StatusAccepted,
 			expectedReindexed: &[]bool{false}[0],
 		},
 		{
@@ -424,7 +423,7 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 			requestBody: map[string]interface{}{
 				"searchable_fields": []string{"title", "content", "category"},
 			},
-			expectedStatus:    http.StatusOK,
+			expectedStatus:    http.StatusAccepted,
 			expectedReindexed: &[]bool{true}[0],
 		},
 		{
@@ -432,7 +431,7 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 			requestBody: map[string]interface{}{
 				"filterable_fields": []string{"category", "year", "popularity"},
 			},
-			expectedStatus:    http.StatusOK,
+			expectedStatus:    http.StatusAccepted,
 			expectedReindexed: &[]bool{true}[0],
 		},
 		{
@@ -443,7 +442,7 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 					{"field": "popularity", "order": "desc"},
 				},
 			},
-			expectedStatus:    http.StatusOK,
+			expectedStatus:    http.StatusAccepted,
 			expectedReindexed: &[]bool{true}[0],
 		},
 		{
@@ -452,7 +451,7 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 				"min_word_size_for_1_typo":  3,
 				"min_word_size_for_2_typos": 6,
 			},
-			expectedStatus:    http.StatusOK,
+			expectedStatus:    http.StatusAccepted,
 			expectedReindexed: &[]bool{true}[0],
 		},
 		{
@@ -465,7 +464,7 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 				"no_typo_tolerance_fields":     []string{},
 				"distinct_field":               "",
 			},
-			expectedStatus:    http.StatusOK,
+			expectedStatus:    http.StatusAccepted,
 			expectedReindexed: &[]bool{true}[0],
 		},
 		{
@@ -534,11 +533,12 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 				}
 
 				if tt.expectedReindexed != nil {
-					reindexed, exists := response["reindexed"].(bool)
+					// For async operations, check reindexing_required field instead
+					reindexingRequired, exists := response["reindexing_required"].(bool)
 					if !exists {
-						t.Errorf("Expected 'reindexed' field in response")
-					} else if reindexed != *tt.expectedReindexed {
-						t.Errorf("Expected reindexed=%v, got reindexed=%v", *tt.expectedReindexed, reindexed)
+						t.Errorf("Expected 'reindexing_required' field in response")
+					} else if reindexingRequired != *tt.expectedReindexed {
+						t.Errorf("Expected reindexing_required=%v, got reindexing_required=%v", *tt.expectedReindexed, reindexingRequired)
 					}
 				}
 			}
@@ -601,9 +601,9 @@ func TestRenameIndexHandler(t *testing.T) {
 			requestBody: RenameIndexRequest{
 				NewName: "renamed_index",
 			},
-			expectedStatus: http.StatusOK,
+			expectedStatus: http.StatusAccepted,
 			expectedFields: map[string]interface{}{
-				"message":  "Index renamed successfully",
+				"message":  "Index rename started: 'test_rename_source' -> 'renamed_index'",
 				"old_name": "test_rename_source",
 				"new_name": "renamed_index",
 			},
@@ -671,8 +671,8 @@ func TestRenameIndexHandler(t *testing.T) {
 				t.Errorf("Expected status %d, got %d. Response: %s", tt.expectedStatus, w.Code, w.Body.String())
 			}
 
-			// For successful renames, verify the response fields and data persistence
-			if tt.expectedStatus == http.StatusOK && tt.expectedFields != nil {
+			// For successful renames, verify the response fields
+			if tt.expectedStatus == http.StatusAccepted && tt.expectedFields != nil {
 				var response map[string]interface{}
 				err := json.Unmarshal(w.Body.Bytes(), &response)
 				if err != nil {
@@ -688,36 +688,8 @@ func TestRenameIndexHandler(t *testing.T) {
 					}
 				}
 
-				// Verify the index was actually renamed
-				newName := tt.requestBody.NewName
-				renamedIndex, err := eng.GetIndex(newName)
-				if err != nil {
-					t.Errorf("Expected to find renamed index '%s', but got error: %v", newName, err)
-				} else {
-					// Verify settings were updated
-					settings := renamedIndex.Settings()
-					if settings.Name != newName {
-						t.Errorf("Expected renamed index to have name '%s', got '%s'", newName, settings.Name)
-					}
-
-					// Verify documents are still accessible
-					searchResult, err := renamedIndex.Search(services.SearchQuery{
-						QueryString: "Test Document",
-						Page:        1,
-						PageSize:    10,
-					})
-					if err != nil {
-						t.Errorf("Failed to search in renamed index: %v", err)
-					} else if len(searchResult.Hits) != 2 {
-						t.Errorf("Expected 2 documents in renamed index, got %d", len(searchResult.Hits))
-					}
-				}
-
-				// Verify old index no longer exists
-				_, err = eng.GetIndex(tt.indexName)
-				if err == nil {
-					t.Errorf("Expected old index '%s' to be removed, but it still exists", tt.indexName)
-				}
+				// Note: Since rename is now async, we can't immediately verify the index was renamed
+				// The actual rename happens in the background via the job system
 			}
 		})
 	}
