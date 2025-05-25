@@ -383,7 +383,7 @@ func (s *Service) getSystemHealth() model.SystemHealth {
 func (s *Service) loadData() error {
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(s.dataFilePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("failed to create analytics directory: %v", err)
 	}
 
@@ -408,7 +408,7 @@ func (s *Service) loadData() error {
 func (s *Service) saveDataWithEvents(events []model.SearchEvent) error {
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(s.dataFilePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("failed to create analytics directory: %v", err)
 	}
 
@@ -417,7 +417,7 @@ func (s *Service) saveDataWithEvents(events []model.SearchEvent) error {
 		return fmt.Errorf("failed to marshal analytics data: %v", err)
 	}
 
-	if err := os.WriteFile(s.dataFilePath, data, 0644); err != nil {
+	if err := os.WriteFile(s.dataFilePath, data, 0600); err != nil {
 		return fmt.Errorf("failed to write analytics file: %v", err)
 	}
 

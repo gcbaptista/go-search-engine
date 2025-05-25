@@ -12,11 +12,11 @@ import (
 func SaveGob(filePath string, object interface{}) error {
 	// Ensure the directory exists
 	dir := filepath.Dir(filePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 
-	file, err := os.Create(filePath)
+	file, err := os.Create(filePath) // #nosec G304 -- filePath is controlled by application, not user input
 	if err != nil {
 		return fmt.Errorf("failed to create file %s: %w", filePath, err)
 	}
@@ -34,7 +34,7 @@ func SaveGob(filePath string, object interface{}) error {
 // If the file does not exist, it returns os.ErrNotExist, allowing callers to handle
 // fresh starts gracefully.
 func LoadGob(filePath string, objectPointer interface{}) error {
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- filePath is controlled by application, not user input
 	if err != nil {
 		if os.IsNotExist(err) {
 			return os.ErrNotExist // Return specific error for non-existent file
