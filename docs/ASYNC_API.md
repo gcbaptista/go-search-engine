@@ -35,7 +35,7 @@ clients to track progress without blocking.
 ## 📋 Supported Async Operations
 
 | Operation            | Endpoint                                | Job Type          | Description                                |
-|----------------------|-----------------------------------------|-------------------|--------------------------------------------|
+| -------------------- | --------------------------------------- | ----------------- | ------------------------------------------ |
 | Create Index         | `POST /indexes`                         | `create_index`    | Creates new search index                   |
 | Delete Index         | `DELETE /indexes/{name}`                | `delete_index`    | Removes entire index                       |
 | Rename Index         | `POST /indexes/{name}/rename`           | `rename_index`    | Changes index name                         |
@@ -231,4 +231,4 @@ Failed jobs include detailed error information:
 
 - **[Search-Time vs Core Settings](./SEARCH_TIME_SETTINGS.md)** - Understanding different types of settings updates
 - **[Analytics](./ANALYTICS.md)** - Performance monitoring and analytics
-- **[Dashboard Guide](./DASHBOARD_GUIDE.md)** - Using the web dashboard with async operations
+- **[Analytics Guide](./ANALYTICS.md)** - Performance monitoring and analytics with async operations

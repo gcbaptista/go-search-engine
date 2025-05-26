@@ -19,16 +19,16 @@ ranking, and prefix search capabilities.
 
 **📖 [Complete Documentation](./docs/)** - Comprehensive guides, optimization details, and development resources
 
-| Quick Links                                                    | Description                          |
-|----------------------------------------------------------------|--------------------------------------|
-| [🚀 **Getting Started**](#quick-start)                         | Installation and basic usage (below) |
-| [⚙️ **Full Async API**](./FULL_ASYNC_IMPLEMENTATION.md)        | Complete async operations guide      |
-| [⚡ **Performance Guide**](./docs/TYPO_OPTIMIZATION_SUMMARY.md) | 95,000x typo tolerance optimizations |
-| [🎯 **Dashboard Guide**](./docs/DASHBOARD_GUIDE.md)            | Web interface documentation          |
-| [🔧 **Field Naming**](./docs/FIELD_NAMING_GUIDE.md)            | Code conventions and standards       |
-| [📊 **Progress Tracker**](./docs/PROGRESS.md)                  | Development milestones               |
-| [🔧 **API Reference**](./api-spec.yaml)                        | Complete OpenAPI 3.0 specification   |
-| [📖 **Development Guide**](./docs/CLAUDE.md)                   | Coding standards and conventions     |
+| Quick Links                                                     | Description                           |
+| --------------------------------------------------------------- | ------------------------------------- |
+| [🚀 **Getting Started**](#quick-start)                          | Installation and basic usage (below)  |
+| [⚙️ **Full Async API**](./docs/ASYNC_API.md)                    | Complete async operations guide       |
+| [⚡ **Performance Guide**](./docs/TYPO_OPTIMIZATION_SUMMARY.md) | 95,000x typo tolerance optimizations  |
+| [🎯 **Analytics Guide**](./docs/ANALYTICS.md)                   | Analytics and dashboard documentation |
+| [🔧 **Field Naming**](./docs/FIELD_NAMING_GUIDE.md)             | Code conventions and standards        |
+| [🔍 **Search Features**](./docs/SEARCH_FEATURES.md)             | Advanced search capabilities          |
+| [🔧 **API Reference**](./api-spec.yaml)                         | Complete OpenAPI 3.0 specification    |
+| [📖 **Development Guide**](./docs/CLAUDE.md)                    | Coding standards and conventions      |
 
 ## Features
 
@@ -497,7 +497,7 @@ The project follows Go best practices:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ## Roadmap
 
