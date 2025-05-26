@@ -358,16 +358,48 @@ func (s *Service) scoreAndSortCandidates(candidatesByDocID map[uint32]*candidate
 		candidates = append(candidates, candidate)
 	}
 
-	// Sort by score (descending) and then by document for consistency
+	// Sort by ranking criteria from settings
 	sort.Slice(candidates, func(i, j int) bool {
-		if candidates[i].score != candidates[j].score {
-			return candidates[i].score > candidates[j].score
+		candidateI := candidates[i]
+		candidateJ := candidates[j]
+
+		// Apply ranking criteria in order
+		for _, criterion := range s.settings.RankingCriteria {
+			var valI, valJ interface{}
+			var okI, okJ bool
+
+			if criterion.Field == "~score" {
+				// Special field for search relevance score
+				valI, okI = candidateI.score, true
+				valJ, okJ = candidateJ.score, true
+			} else {
+				// Regular document field
+				valI, okI = candidateI.doc[criterion.Field]
+				valJ, okJ = candidateJ.doc[criterion.Field]
+			}
+
+			// Handle missing fields
+			if !okI && !okJ {
+				continue // Both missing, try next criterion
+			}
+			if okI && !okJ {
+				return criterion.Order != "asc" // Missing field goes to end
+			}
+			if !okI && okJ {
+				return criterion.Order == "asc" // Missing field goes to end
+			}
+
+			// Compare values
+			if result := s.compareRankingValues(valI, valJ, criterion.Order); result != 0 {
+				return result > 0
+			}
 		}
-		// Use a consistent field for tie-breaking (assuming documents have an ID field)
-		docI := candidates[i].doc
-		docJ := candidates[j].doc
-		if idI, okI := docI["id"]; okI {
-			if idJ, okJ := docJ["id"]; okJ {
+
+		// Final tie-breaker: use document ID for consistency
+		docI := candidateI.doc
+		docJ := candidateJ.doc
+		if idI, okI := docI["documentID"]; okI {
+			if idJ, okJ := docJ["documentID"]; okJ {
 				return fmt.Sprintf("%v", idI) < fmt.Sprintf("%v", idJ)
 			}
 		}
@@ -406,4 +438,71 @@ func (s *Service) calculateScore(candidate *candidateHit, originalQueryTokens []
 	}
 
 	return score
+}
+
+// compareRankingValues compares two values according to the specified order
+// Returns: > 0 if valI should come before valJ, < 0 if valJ should come before valI, 0 if equal
+func (s *Service) compareRankingValues(valI, valJ interface{}, order string) int {
+	// Handle numeric comparisons
+	if numI, okI := convertToFloat64(valI); okI {
+		if numJ, okJ := convertToFloat64(valJ); okJ {
+			if numI == numJ {
+				return 0
+			}
+			if order == "asc" {
+				if numI < numJ {
+					return 1
+				}
+				return -1
+			} else { // desc
+				if numI > numJ {
+					return 1
+				}
+				return -1
+			}
+		}
+	}
+
+	// Handle string comparisons
+	if strI, okI := valI.(string); okI {
+		if strJ, okJ := valJ.(string); okJ {
+			if strI == strJ {
+				return 0
+			}
+			if order == "asc" {
+				if strI < strJ {
+					return 1
+				}
+				return -1
+			} else { // desc
+				if strI > strJ {
+					return 1
+				}
+				return -1
+			}
+		}
+	}
+
+	// Handle time comparisons
+	if timeI, okI := convertToTime(valI); okI {
+		if timeJ, okJ := convertToTime(valJ); okJ {
+			if timeI.Equal(timeJ) {
+				return 0
+			}
+			if order == "asc" {
+				if timeI.Before(timeJ) {
+					return 1
+				}
+				return -1
+			} else { // desc
+				if timeI.After(timeJ) {
+					return 1
+				}
+				return -1
+			}
+		}
+	}
+
+	// Default: treat as equal
+	return 0
 }
