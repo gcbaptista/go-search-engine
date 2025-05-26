@@ -70,18 +70,41 @@
 Follow the established modular architecture:
 
 ```
-├── api/                    # HTTP handlers and routing
+├── .github/                # GitHub workflows and templates
+│   ├── workflows/         # CI/CD workflows
+│   └── pull_request_template.md
+├── api/                    # HTTP handlers and routing (modularized)
+│   ├── analytics_handlers.go    # Analytics endpoints
+│   ├── document_handlers.go     # Document management endpoints
+│   ├── handlers.go              # Core API setup and middleware
+│   ├── index_handlers.go        # Index management endpoints
+│   ├── job_handlers.go          # Job management endpoints
+│   └── search_handlers.go       # Search endpoints
 ├── cmd/search_engine/      # Main application entry point
 ├── config/                 # Configuration structures
+├── docs/                   # Project documentation
 ├── index/                  # Inverted index implementation
 ├── internal/               # Private application code
-│   ├── engine/            # Core engine orchestration
+│   ├── analytics/         # Analytics and monitoring
+│   ├── engine/            # Core engine orchestration (modularized)
+│   │   ├── async_operations.go  # Asynchronous operations
+│   │   ├── engine.go            # Main engine logic
+│   │   ├── index_management.go  # Index lifecycle management
+│   │   ├── instance.go          # Index instance management
+│   │   ├── persistence.go       # Data persistence operations
+│   │   └── settings_management.go # Settings and configuration
 │   ├── indexing/          # Document indexing service
-│   ├── search/            # Search service implementation
+│   ├── jobs/              # Background job management
+│   ├── persistence/       # Data persistence layer
+│   ├── search/            # Search service implementation (modularized)
+│   │   ├── filtering.go         # Document filtering and deduplication
+│   │   ├── multi_search.go      # Parallel multi-search functionality
+│   │   └── service.go           # Core search logic
 │   ├── tokenizer/         # Text tokenization
-│   ├── typoutil/          # Typo tolerance utilities
-│   └── persistence/       # Data persistence layer
+│   └── typoutil/          # Typo tolerance utilities
 ├── model/                 # Data models and structures
+├── scripts/               # Utility scripts
+├── search_data/           # Data storage directory
 ├── services/              # Service interfaces
 └── store/                 # Document storage implementation
 ```
