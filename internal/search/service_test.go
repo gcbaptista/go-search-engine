@@ -1,6 +1,7 @@
 package search
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/gcbaptista/go-search-engine/model"
 	"github.com/gcbaptista/go-search-engine/services"
 	"github.com/gcbaptista/go-search-engine/store"
+	"github.com/stretchr/testify/assert"
 )
 
 // --- Test Helpers ---
@@ -1018,4 +1020,446 @@ func TestRetrivableFields(t *testing.T) {
 			t.Errorf("Expected document to have 2 fields, but got %d", len(hit.Document))
 		}
 	})
+}
+
+// createTestService creates a test service with the given documents
+func createTestService(t *testing.T, docs []model.Document) *Service {
+	t.Helper()
+
+	settings := &config.IndexSettings{
+		Name:                      "test_multi_search",
+		SearchableFields:          []string{"title", "content", "category"},
+		FilterableFields:          []string{"year", "category"},
+		MinWordSizeFor1Typo:       4,
+		MinWordSizeFor2Typos:      7,
+		FieldsWithoutPrefixSearch: []string{},
+		NoTypoToleranceFields:     []string{},
+		DistinctField:             "",
+		RankingCriteria:           []config.RankingCriterion{},
+	}
+
+	docStore := &store.DocumentStore{
+		Docs:                   make(map[uint32]model.Document),
+		ExternalIDtoInternalID: make(map[string]uint32),
+		NextID:                 0,
+	}
+
+	invIndex := &index.InvertedIndex{
+		Index:    make(map[string]index.PostingList),
+		Settings: settings,
+	}
+
+	indexerService, err := indexing.NewService(invIndex, docStore)
+	if err != nil {
+		t.Fatalf("Failed to create indexer service: %v", err)
+	}
+
+	searchService, err := NewService(invIndex, docStore, settings)
+	if err != nil {
+		t.Fatalf("Failed to create search service: %v", err)
+	}
+
+	// Add documents to index
+	err = indexerService.AddDocuments(docs)
+	if err != nil {
+		t.Fatalf("Failed to add documents: %v", err)
+	}
+
+	// Update typo finder after indexing
+	searchService.UpdateTypoFinder()
+
+	return searchService
+}
+
+func TestMultiSearch(t *testing.T) {
+	// Setup test data
+	docs := []model.Document{
+		{
+			"documentID": "doc1",
+			"title":      "Go Programming Language",
+			"content":    "Learn Go programming with examples",
+			"category":   "programming",
+			"year":       2020,
+		},
+		{
+			"documentID": "doc2",
+			"title":      "Python Programming",
+			"content":    "Python is a versatile programming language",
+			"category":   "programming",
+			"year":       2019,
+		},
+		{
+			"documentID": "doc3",
+			"title":      "Web Development",
+			"content":    "Building web applications with Go",
+			"category":   "web",
+			"year":       2021,
+		},
+	}
+
+	// Create service with test data
+	service := createTestService(t, docs)
+
+	t.Run("separate queries execution", func(t *testing.T) {
+		multiQuery := services.MultiSearchQuery{
+			Queries: []services.NamedSearchQuery{
+				{
+					Name:                     "go_search",
+					Query:                    "Go",
+					RestrictSearchableFields: []string{"title", "content"},
+				},
+				{
+					Name:                     "python_search",
+					Query:                    "Python",
+					RestrictSearchableFields: []string{"title", "content"},
+				},
+			},
+			Page:     1,
+			PageSize: 10,
+		}
+
+		result, err := service.MultiSearch(context.Background(), multiQuery)
+		if err != nil {
+			t.Fatalf("MultiSearch failed: %v", err)
+		}
+
+		// Should have results for both queries
+		if len(result.Results) != 2 {
+			t.Errorf("Expected 2 query results, got %d", len(result.Results))
+		}
+
+		// Check go_search results
+		goResults, exists := result.Results["go_search"]
+		if !exists {
+			t.Error("Expected 'go_search' results")
+		} else if len(goResults.Hits) == 0 {
+			t.Error("Expected hits for 'go_search'")
+		}
+
+		// Check python_search results
+		pythonResults, exists := result.Results["python_search"]
+		if !exists {
+			t.Error("Expected 'python_search' results")
+		} else if len(pythonResults.Hits) == 0 {
+			t.Error("Expected hits for 'python_search'")
+		}
+
+		// Check metadata
+		if result.TotalQueries != 2 {
+			t.Errorf("Expected TotalQueries=2, got %d", result.TotalQueries)
+		}
+
+		if result.ProcessingTimeMs <= 0 {
+			t.Error("Expected positive processing time")
+		}
+	})
+
+	t.Run("queries with filters", func(t *testing.T) {
+		multiQuery := services.MultiSearchQuery{
+			Queries: []services.NamedSearchQuery{
+				{
+					Name:  "programming_2020",
+					Query: "programming",
+					Filters: map[string]interface{}{
+						"category": "programming",
+						"year":     2020,
+					},
+				},
+				{
+					Name:  "web_category",
+					Query: "web",
+					Filters: map[string]interface{}{
+						"category": "web",
+					},
+				},
+			},
+		}
+
+		result, err := service.MultiSearch(context.Background(), multiQuery)
+		if err != nil {
+			t.Fatalf("MultiSearch with filters failed: %v", err)
+		}
+
+		// Should have results for both queries
+		if len(result.Results) != 2 {
+			t.Errorf("Expected 2 query results, got %d", len(result.Results))
+		}
+	})
+
+	t.Run("empty queries validation", func(t *testing.T) {
+		multiQuery := services.MultiSearchQuery{
+			Queries: []services.NamedSearchQuery{},
+		}
+
+		_, err := service.MultiSearch(context.Background(), multiQuery)
+		if err == nil {
+			t.Error("Expected error for empty queries")
+		}
+		if !strings.Contains(err.Error(), "at least one query is required") {
+			t.Errorf("Expected specific error message, got: %v", err)
+		}
+	})
+
+	t.Run("empty query name validation", func(t *testing.T) {
+		multiQuery := services.MultiSearchQuery{
+			Queries: []services.NamedSearchQuery{
+				{
+					Name:  "",
+					Query: "test",
+				},
+			},
+		}
+
+		_, err := service.MultiSearch(context.Background(), multiQuery)
+		if err == nil {
+			t.Error("Expected error for empty query name")
+		}
+		if !strings.Contains(err.Error(), "non-empty name") {
+			t.Errorf("Expected specific error message, got: %v", err)
+		}
+	})
+
+	t.Run("query with typo tolerance overrides", func(t *testing.T) {
+		multiQuery := services.MultiSearchQuery{
+			Queries: []services.NamedSearchQuery{
+				{
+					Name:                "typo_search",
+					Query:               "programing", // Typo: missing 'm'
+					MinWordSizeFor1Typo: &[]int{3}[0], // Enable typo tolerance
+				},
+			},
+		}
+
+		result, err := service.MultiSearch(context.Background(), multiQuery)
+		if err != nil {
+			t.Fatalf("MultiSearch with typo tolerance failed: %v", err)
+		}
+
+		// Should have results
+		if len(result.Results) != 1 {
+			t.Errorf("Expected 1 query result, got %d", len(result.Results))
+		}
+	})
+}
+
+func TestNonTypoTolerantWords(t *testing.T) {
+	// Add test documents
+	docs := []model.Document{
+		{
+			"documentID": "doc1",
+			"title":      "History of World War II",
+			"content":    "A comprehensive study of the war including Hitler's role",
+			"category":   "history",
+		},
+		{
+			"documentID": "doc2",
+			"title":      "Stalin's Soviet Union",
+			"content":    "Biography of Joseph Stalin and his policies",
+			"category":   "history",
+		},
+		{
+			"documentID": "doc3",
+			"title":      "COVID-19 Pandemic",
+			"content":    "Analysis of the global pandemic response",
+			"category":   "health",
+		},
+		{
+			"documentID": "doc4",
+			"title":      "World War II Documentary",
+			"content":    "Documentary about the final days",
+			"category":   "history",
+		},
+	}
+
+	// Create test service and then modify its settings for non-typo tolerant words
+	service := createTestService(t, docs)
+
+	// Update the service settings to include non-typo tolerant words
+	service.settings.NonTypoTolerantWords = []string{"hitler", "stalin", "covid"}
+	service.settings.MinWordSizeFor1Typo = 3
+	service.settings.MinWordSizeFor2Typos = 6
+
+	// Test 1: Search for exact "hitler" should work (exact matches always work)
+	query := services.SearchQuery{
+		QueryString: "hitler",
+		Page:        1,
+		PageSize:    10,
+	}
+
+	result, err := service.Search(query)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, result.Total, "Should find exact matches for non-typo tolerant words")
+	assert.Equal(t, "doc1", result.Hits[0].Document["documentID"])
+
+	// Test 2: Search for "hitlar" should NOT match "hitler" via typos
+	// because "hitler" is in the non-typo tolerant words list
+	query.QueryString = "hitlar"
+	result, err = service.Search(query)
+	assert.NoError(t, err)
+
+	// Debug: Print what we found
+	if result.Total > 0 {
+		t.Logf("Found %d results for 'hitlar':", result.Total)
+		for i, hit := range result.Hits {
+			t.Logf("  Hit %d: %v, Score: %f, FieldMatches: %v", i, hit.Document["documentID"], hit.Score, hit.FieldMatches)
+		}
+	}
+
+	assert.Equal(t, 0, result.Total, "Should not find typo matches TO non-typo tolerant word 'hitler'")
+
+	// Test 3: Search for "stalin" should work exactly
+	query.QueryString = "stalin"
+	result, err = service.Search(query)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, result.Total, "Should find exact matches for 'stalin'")
+
+	// Test 4: Search for "staln" should NOT match "stalin" via typos
+	query.QueryString = "staln"
+	result, err = service.Search(query)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, result.Total, "Should not find typo matches TO non-typo tolerant word 'stalin'")
+
+	// Test 5: Search for "covid" should work exactly
+	query.QueryString = "covid"
+	result, err = service.Search(query)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, result.Total, "Should find exact matches for 'covid'")
+
+	// Test 6: Search for "covd" should NOT match "covid" via typos
+	query.QueryString = "covd"
+	result, err = service.Search(query)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, result.Total, "Should not find typo matches TO non-typo tolerant word 'covid'")
+
+	// Test 7: Regular typo tolerance should still work for other words
+	query.QueryString = "pandemc" // typo for "pandemic"
+	result, err = service.Search(query)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, result.Total, "Should find typo matches for regular words")
+	assert.Equal(t, "doc3", result.Hits[0].Document["documentID"])
+
+	// Test 8: Case insensitive exact matching should work
+	query.QueryString = "HITLER"
+	result, err = service.Search(query)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, result.Total, "Should find exact matches for non-typo tolerant words (case insensitive)")
+
+	// Test 9: Case insensitive typo prevention should work
+	query.QueryString = "HITLAR"
+	result, err = service.Search(query)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, result.Total, "Should not find typo matches TO non-typo tolerant words (case insensitive)")
+
+	// Test 10: Non-typo tolerant words should not generate typos FROM them either
+	// If someone searches for "hitler", it should not generate typos like "hitlar", "hitleer", etc.
+	// This is already handled by the first check in the typo logic
+}
+
+func TestMultiSearchParallel(t *testing.T) {
+	// Add test documents
+	docs := []model.Document{
+		{
+			"documentID": "doc1",
+			"title":      "The Matrix",
+			"content":    "A sci-fi movie",
+			"category":   "movie",
+		},
+		{
+			"documentID": "doc2",
+			"title":      "Matrix Reloaded",
+			"content":    "Sequel to The Matrix",
+			"category":   "movie",
+		},
+		{
+			"documentID": "doc3",
+			"title":      "Science Fiction Guide",
+			"content":    "A comprehensive guide",
+			"category":   "book",
+		},
+	}
+
+	service := createTestService(t, docs)
+
+	// Test parallel execution with timing
+	multiQuery := services.MultiSearchQuery{
+		Queries: []services.NamedSearchQuery{
+			{
+				Name:                     "title_search",
+				Query:                    "matrix",
+				RestrictSearchableFields: []string{"title"},
+			},
+			{
+				Name:                     "content_search",
+				Query:                    "sci-fi",
+				RestrictSearchableFields: []string{"content"},
+			},
+			{
+				Name:    "filtered_search",
+				Query:   "matrix",
+				Filters: map[string]interface{}{"category": "movie"},
+			},
+		},
+		Page:     1,
+		PageSize: 10,
+	}
+
+	ctx := context.Background()
+	startTime := time.Now()
+	result, err := service.MultiSearch(ctx, multiQuery)
+	duration := time.Since(startTime)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, 3, result.TotalQueries)
+	assert.Equal(t, 3, len(result.Results))
+
+	// Verify all queries returned results
+	titleResult, exists := result.Results["title_search"]
+	assert.True(t, exists)
+	assert.Equal(t, 2, titleResult.Total) // Both Matrix movies
+
+	contentResult, exists := result.Results["content_search"]
+	assert.True(t, exists)
+	assert.Equal(t, 1, contentResult.Total) // One sci-fi movie
+
+	filteredResult, exists := result.Results["filtered_search"]
+	assert.True(t, exists)
+	assert.Equal(t, 2, filteredResult.Total) // Both Matrix movies (category=movie)
+
+	// Verify parallel execution was reasonably fast
+	// (This is a rough check - parallel should be faster than sequential)
+	assert.Less(t, duration.Milliseconds(), int64(100), "Parallel execution should be reasonably fast")
+	assert.Greater(t, result.ProcessingTimeMs, 0.0, "Processing time should be recorded")
+}
+
+func TestMultiSearchContextCancellation(t *testing.T) {
+	// Add a test document
+	docs := []model.Document{
+		{
+			"documentID": "doc1",
+			"title":      "Test Document",
+		},
+	}
+
+	service := createTestService(t, docs)
+
+	// Create a context that will be cancelled
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	multiQuery := services.MultiSearchQuery{
+		Queries: []services.NamedSearchQuery{
+			{
+				Name:  "test_search",
+				Query: "test",
+			},
+		},
+		Page:     1,
+		PageSize: 10,
+	}
+
+	result, err := service.MultiSearch(ctx, multiQuery)
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "multi-search cancelled")
 }

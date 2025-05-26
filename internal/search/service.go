@@ -1,6 +1,7 @@
 package search
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"sort"
@@ -158,45 +159,99 @@ func (s *Service) Search(query services.SearchQuery) (services.SearchResult, err
 		}
 
 		// 2. Typo matches for the queryToken
-		// Use dual criteria: stop when either 500 tokens found OR 50ms elapsed
-		maxTypoResults := 500
-		timeLimit := 50 * time.Millisecond
-
-		// Use query-level minWordSize settings if provided, otherwise fall back to index settings
-		minWordSizeFor1Typo := s.settings.MinWordSizeFor1Typo
-		if query.MinWordSizeFor1Typo != nil {
-			minWordSizeFor1Typo = *query.MinWordSizeFor1Typo
+		// Check if this query token is in the non-typo tolerant words list
+		isNonTypoTolerant := false
+		for _, nonTypoWord := range s.settings.NonTypoTolerantWords {
+			if strings.EqualFold(queryToken, nonTypoWord) {
+				isNonTypoTolerant = true
+				break
+			}
 		}
 
-		minWordSizeFor2Typos := s.settings.MinWordSizeFor2Typos
-		if query.MinWordSizeFor2Typos != nil {
-			minWordSizeFor2Typos = *query.MinWordSizeFor2Typos
-		}
+		// Skip typo matching if this word is in the non-typo tolerant list
+		if !isNonTypoTolerant {
+			// Use dual criteria: stop when either 500 tokens found OR 50ms elapsed
+			maxTypoResults := 500
+			timeLimit := 50 * time.Millisecond
 
-		if minWordSizeFor1Typo > 0 && len(queryToken) >= minWordSizeFor1Typo {
-			typos1 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 1, maxTypoResults, timeLimit)
-			for _, typoTerm := range typos1 {
-				if postingList, found := s.invertedIndex.Index[typoTerm]; found {
-					for _, entry := range postingList {
-						if isFieldAllowed(entry.FieldName) {
-							typoEntry := entry
-							typoEntry.Score *= 0.8 // Penalize typo scores slightly
-							docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = append(docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID], typoEntry)
+			// Use query-level minWordSize settings if provided, otherwise fall back to index settings
+			minWordSizeFor1Typo := s.settings.MinWordSizeFor1Typo
+			if query.MinWordSizeFor1Typo != nil {
+				minWordSizeFor1Typo = *query.MinWordSizeFor1Typo
+			}
+
+			minWordSizeFor2Typos := s.settings.MinWordSizeFor2Typos
+			if query.MinWordSizeFor2Typos != nil {
+				minWordSizeFor2Typos = *query.MinWordSizeFor2Typos
+			}
+
+			if minWordSizeFor1Typo > 0 && len(queryToken) >= minWordSizeFor1Typo {
+				typos1 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 1, maxTypoResults, timeLimit)
+				for _, typoTerm := range typos1 {
+					// Check if the typo term itself is in the non-typo tolerant words list
+					// or if it's a prefix that could match non-typo tolerant words
+					isTypoTermNonTypoTolerant := false
+					for _, nonTypoWord := range s.settings.NonTypoTolerantWords {
+						if strings.EqualFold(typoTerm, nonTypoWord) {
+							isTypoTermNonTypoTolerant = true
+							break
+						}
+						// Also check if the typo term is a prefix of a non-typo tolerant word
+						// This prevents partial matches like "stal" matching documents with "stalin"
+						if len(typoTerm) >= 3 && strings.HasPrefix(strings.ToLower(nonTypoWord), strings.ToLower(typoTerm)) {
+							isTypoTermNonTypoTolerant = true
+							break
+						}
+					}
+
+					// Skip this typo if it would match a non-typo tolerant word
+					if isTypoTermNonTypoTolerant {
+						continue
+					}
+
+					if postingList, found := s.invertedIndex.Index[typoTerm]; found {
+						for _, entry := range postingList {
+							if isFieldAllowed(entry.FieldName) {
+								typoEntry := entry
+								typoEntry.Score *= 0.8 // Penalize typo scores slightly
+								docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = append(docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID], typoEntry)
+							}
 						}
 					}
 				}
 			}
-		}
 
-		if minWordSizeFor2Typos > 0 && len(queryToken) >= minWordSizeFor2Typos {
-			typos2 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 2, maxTypoResults, timeLimit)
-			for _, typoTerm := range typos2 {
-				if postingList, found := s.invertedIndex.Index[typoTerm]; found {
-					for _, entry := range postingList {
-						if isFieldAllowed(entry.FieldName) {
-							typoEntry := entry
-							typoEntry.Score *= 0.6 // Penalize 2-typo matches more than 1-typo
-							docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = append(docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID], typoEntry)
+			if minWordSizeFor2Typos > 0 && len(queryToken) >= minWordSizeFor2Typos {
+				typos2 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 2, maxTypoResults, timeLimit)
+				for _, typoTerm := range typos2 {
+					// Check if the typo term itself is in the non-typo tolerant words list
+					// or if it's a prefix that could match non-typo tolerant words
+					isTypoTermNonTypoTolerant := false
+					for _, nonTypoWord := range s.settings.NonTypoTolerantWords {
+						if strings.EqualFold(typoTerm, nonTypoWord) {
+							isTypoTermNonTypoTolerant = true
+							break
+						}
+						// Also check if the typo term is a prefix of a non-typo tolerant word
+						// This prevents partial matches like "stal" matching documents with "stalin"
+						if len(typoTerm) >= 3 && strings.HasPrefix(strings.ToLower(nonTypoWord), strings.ToLower(typoTerm)) {
+							isTypoTermNonTypoTolerant = true
+							break
+						}
+					}
+
+					// Skip this typo if it would match a non-typo tolerant word
+					if isTypoTermNonTypoTolerant {
+						continue
+					}
+
+					if postingList, found := s.invertedIndex.Index[typoTerm]; found {
+						for _, entry := range postingList {
+							if isFieldAllowed(entry.FieldName) {
+								typoEntry := entry
+								typoEntry.Score *= 0.6 // Penalize 2-typo matches more than 1-typo
+								docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = append(docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID], typoEntry)
+							}
 						}
 					}
 				}
@@ -920,4 +975,76 @@ func (s *Service) filterDocumentFields(doc model.Document, retrivableFields []st
 	}
 
 	return filteredDoc
+}
+
+// MultiSearch executes multiple named search queries in parallel
+func (s *Service) MultiSearch(ctx context.Context, multiQuery services.MultiSearchQuery) (*services.MultiSearchResult, error) {
+	startTime := time.Now()
+
+	if len(multiQuery.Queries) == 0 {
+		return nil, fmt.Errorf("at least one query is required")
+	}
+
+	// Create channels for parallel execution
+	type queryResult struct {
+		name   string
+		result services.SearchResult
+		err    error
+	}
+
+	resultChan := make(chan queryResult, len(multiQuery.Queries))
+
+	// Execute queries in parallel
+	for _, namedQuery := range multiQuery.Queries {
+		if namedQuery.Name == "" {
+			return nil, fmt.Errorf("each query must have a non-empty name")
+		}
+
+		// Launch goroutine for each query
+		go func(nq services.NamedSearchQuery) {
+			// Convert NamedSearchQuery to SearchQuery
+			searchQuery := services.SearchQuery{
+				QueryString:              nq.Query,
+				RestrictSearchableFields: nq.RestrictSearchableFields,
+				RetrivableFields:         nq.RetrivableFields,
+				Filters:                  nq.Filters,
+				Page:                     multiQuery.Page,
+				PageSize:                 multiQuery.PageSize,
+				MinWordSizeFor1Typo:      nq.MinWordSizeFor1Typo,
+				MinWordSizeFor2Typos:     nq.MinWordSizeFor2Typos,
+			}
+
+			// Execute the search
+			result, err := s.Search(searchQuery)
+
+			// Send result to channel
+			resultChan <- queryResult{
+				name:   nq.Name,
+				result: result,
+				err:    err,
+			}
+		}(namedQuery)
+	}
+
+	// Collect results from all goroutines
+	results := make(map[string]services.SearchResult)
+	for i := 0; i < len(multiQuery.Queries); i++ {
+		select {
+		case qr := <-resultChan:
+			if qr.err != nil {
+				return nil, fmt.Errorf("error executing query '%s': %w", qr.name, qr.err)
+			}
+			results[qr.name] = qr.result
+		case <-ctx.Done():
+			return nil, fmt.Errorf("multi-search cancelled: %w", ctx.Err())
+		}
+	}
+
+	processingTime := time.Since(startTime)
+
+	return &services.MultiSearchResult{
+		Results:          results,
+		TotalQueries:     len(multiQuery.Queries),
+		ProcessingTimeMs: float64(processingTime.Nanoseconds()) / 1e6,
+	}, nil
 }

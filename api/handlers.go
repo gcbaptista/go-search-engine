@@ -69,8 +69,9 @@ func SetupRoutes(router *gin.Engine, engine services.IndexManager) {
 			docRoutes.DELETE("/:documentId", apiHandler.DeleteDocumentHandler) // Delete specific document
 		}
 
-		// Search route per index
+		// Search routes per index
 		indexRoutes.POST("/:indexName/_search", apiHandler.SearchHandler)
+		indexRoutes.POST("/:indexName/_multi_search", apiHandler.MultiSearchHandler)
 	}
 }
 
@@ -262,6 +263,24 @@ type SearchRequest struct {
 	MinWordSizeFor2Typos     *int                   `json:"min_word_size_for_2_typos,omitempty"` // Optional: override index setting for minimum word size for 2 typos
 }
 
+// MultiSearchRequest represents the JSON request for multi-search
+type MultiSearchRequest struct {
+	Queries  []NamedSearchRequest `json:"queries" binding:"required"`
+	Page     int                  `json:"page,omitempty"`
+	PageSize int                  `json:"page_size,omitempty"`
+}
+
+// NamedSearchRequest represents a single named search query in the request
+type NamedSearchRequest struct {
+	Name                     string                 `json:"name" binding:"required"`
+	Query                    string                 `json:"query" binding:"required"`
+	RestrictSearchableFields []string               `json:"restrict_searchable_fields,omitempty"`
+	RetrivableFields         []string               `json:"retrivable_fields,omitempty"`
+	Filters                  map[string]interface{} `json:"filters,omitempty"`
+	MinWordSizeFor1Typo      *int                   `json:"min_word_size_for_1_typo,omitempty"`
+	MinWordSizeFor2Typos     *int                   `json:"min_word_size_for_2_typos,omitempty"`
+}
+
 // SearchHandler handles search requests to an index.
 // Request Body: SearchRequest (similar to services.SearchQuery but adapted for JSON)
 func (api *API) SearchHandler(c *gin.Context) {
@@ -316,6 +335,104 @@ func (api *API) SearchHandler(c *gin.Context) {
 			log.Printf("Warning: Failed to track search event: %v", err)
 		}
 	}()
+
+	c.JSON(http.StatusOK, results)
+}
+
+// MultiSearchHandler handles multi-query search requests to an index.
+// Request Body: MultiSearchRequest
+func (api *API) MultiSearchHandler(c *gin.Context) {
+	startTime := time.Now()
+	indexName := c.Param("indexName")
+
+	indexAccessor, err := api.engine.GetIndex(indexName)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
+		return
+	}
+
+	var req MultiSearchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid multi-search request body: " + err.Error()})
+		return
+	}
+
+	// Validate that we have at least one query
+	if len(req.Queries) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one query is required"})
+		return
+	}
+
+	// Validate query names are unique
+	queryNames := make(map[string]bool)
+	for _, namedQuery := range req.Queries {
+		if namedQuery.Name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "All queries must have a non-empty name"})
+			return
+		}
+		if queryNames[namedQuery.Name] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Query names must be unique: '" + namedQuery.Name + "' appears multiple times"})
+			return
+		}
+		queryNames[namedQuery.Name] = true
+	}
+
+	// Convert API request to service request
+	multiSearchQuery := services.MultiSearchQuery{
+		Page:     req.Page,
+		PageSize: req.PageSize,
+	}
+
+	// Convert named search requests
+	for _, namedReq := range req.Queries {
+		namedQuery := services.NamedSearchQuery{
+			Name:                     namedReq.Name,
+			Query:                    namedReq.Query,
+			RestrictSearchableFields: namedReq.RestrictSearchableFields,
+			RetrivableFields:         namedReq.RetrivableFields,
+			Filters:                  namedReq.Filters,
+			MinWordSizeFor1Typo:      namedReq.MinWordSizeFor1Typo,
+			MinWordSizeFor2Typos:     namedReq.MinWordSizeFor2Typos,
+		}
+		multiSearchQuery.Queries = append(multiSearchQuery.Queries, namedQuery)
+	}
+
+	results, err := indexAccessor.MultiSearch(multiSearchQuery)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error performing multi-search on index '" + indexName + "': " + err.Error()})
+		return
+	}
+
+	// Track analytics events for each individual query
+	responseTime := time.Since(startTime)
+	for queryName, result := range results.Results {
+		// Find the original request for this query to get the query string and filters
+		var originalQuery string
+		var queryFilters map[string]interface{}
+		for _, namedReq := range req.Queries {
+			if namedReq.Name == queryName {
+				originalQuery = namedReq.Query
+				queryFilters = namedReq.Filters
+				break
+			}
+		}
+
+		event := model.SearchEvent{
+			IndexName:    indexName,
+			Query:        originalQuery,
+			SearchType:   "multi_search",
+			ResponseTime: responseTime,
+			ResultCount:  result.Total,
+			Filters:      queryFilters,
+		}
+
+		// Track the event asynchronously
+		go func(e model.SearchEvent) {
+			if err := api.analytics.TrackSearchEvent(e); err != nil {
+				log.Printf("Warning: Failed to track search event: %v", err)
+			}
+		}(event)
+	}
 
 	c.JSON(http.StatusOK, results)
 }
@@ -469,6 +586,7 @@ func (api *API) RenameIndexHandler(c *gin.Context) {
 type IndexSettingsUpdate struct {
 	FieldsWithoutPrefixSearch *[]string                  `json:"fields_without_prefix_search,omitempty"` // Use []string, not *[]string, to allow sending an empty list to clear
 	NoTypoToleranceFields     *[]string                  `json:"no_typo_tolerance_fields,omitempty"`     // Use []string to allow sending an empty list to clear
+	NonTypoTolerantWords      *[]string                  `json:"non_typo_tolerant_words,omitempty"`      // Specific words that should never be typo-matched
 	DistinctField             *string                    `json:"distinct_field,omitempty"`               // Use pointer to distinguish between empty string and not provided
 	SearchableFields          *[]string                  `json:"searchable_fields,omitempty"`            // Fields that can be searched, in priority order
 	FilterableFields          *[]string                  `json:"filterable_fields,omitempty"`            // Fields that can be used in filters
@@ -614,6 +732,22 @@ func (api *API) UpdateIndexSettingsHandler(c *gin.Context) {
 				}
 			}
 			settings.NoTypoToleranceFields = stringSlice
+		}
+		updated = true
+	}
+
+	// Handle non_typo_tolerant_words (word-level setting)
+	if fieldValue, keyExists := rawRequest["non_typo_tolerant_words"]; keyExists {
+		if fieldValue == nil {
+			settings.NonTypoTolerantWords = []string{}
+		} else if fieldSlice, isSlice := fieldValue.([]interface{}); isSlice {
+			stringSlice := make([]string, len(fieldSlice))
+			for i, v := range fieldSlice {
+				if str, isStr := v.(string); isStr {
+					stringSlice[i] = str
+				}
+			}
+			settings.NonTypoTolerantWords = stringSlice
 		}
 		updated = true
 	}

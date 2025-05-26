@@ -721,6 +721,339 @@ func TestRenameIndexHandler(t *testing.T) {
 	}
 }
 
+func TestMultiSearchHandler(t *testing.T) {
+	eng := setupTestEngine()
+	router := setupTestRouter(eng)
+
+	// Create index and add test documents
+	indexSettings := config.IndexSettings{
+		Name:             "test_multi_search",
+		SearchableFields: []string{"title", "cast", "genres"},
+		FilterableFields: []string{"year", "rating", "genres"},
+	}
+	if err := eng.CreateIndex(indexSettings); err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
+
+	indexAccessor, _ := eng.GetIndex("test_multi_search")
+	docs := []model.Document{
+		{
+			"documentID": "movie_matrix_1999",
+			"title":      "The Matrix",
+			"cast":       []string{"Keanu Reeves", "Laurence Fishburne"},
+			"genres":     []string{"Action", "Sci-Fi"},
+			"year":       1999,
+			"rating":     8.7,
+		},
+		{
+			"documentID": "movie_john_wick_2014",
+			"title":      "John Wick",
+			"cast":       []string{"Keanu Reeves", "Michael Nyqvist"},
+			"genres":     []string{"Action", "Thriller"},
+			"year":       2014,
+			"rating":     7.4,
+		},
+		{
+			"documentID": "movie_inception_2010",
+			"title":      "Inception",
+			"cast":       []string{"Leonardo DiCaprio", "Marion Cotillard"},
+			"genres":     []string{"Action", "Sci-Fi", "Thriller"},
+			"year":       2010,
+			"rating":     8.8,
+		},
+	}
+	if err := indexAccessor.AddDocuments(docs); err != nil {
+		t.Fatalf("Failed to add documents: %v", err)
+	}
+
+	tests := []struct {
+		name           string
+		requestBody    MultiSearchRequest
+		expectedStatus int
+		validateFunc   func(t *testing.T, response map[string]interface{})
+	}{
+		{
+			name: "separate queries execution",
+			requestBody: MultiSearchRequest{
+				Queries: []NamedSearchRequest{
+					{
+						Name:                     "title_search",
+						Query:                    "matrix",
+						RestrictSearchableFields: []string{"title"},
+					},
+					{
+						Name:                     "cast_search",
+						Query:                    "keanu",
+						RestrictSearchableFields: []string{"cast"},
+					},
+				},
+				Page:     1,
+				PageSize: 10,
+			},
+			expectedStatus: http.StatusOK,
+			validateFunc: func(t *testing.T, response map[string]interface{}) {
+				// Check that we have individual results
+				results, ok := response["results"].(map[string]interface{})
+				if !ok {
+					t.Error("Expected 'results' field in response")
+					return
+				}
+
+				// Should have results for both queries
+				if _, exists := results["title_search"]; !exists {
+					t.Error("Expected 'title_search' results")
+				}
+				if _, exists := results["cast_search"]; !exists {
+					t.Error("Expected 'cast_search' results")
+				}
+
+				// Check total queries
+				if totalQueries, ok := response["total_queries"].(float64); !ok || totalQueries != 2 {
+					t.Errorf("Expected total_queries=2, got %v", response["total_queries"])
+				}
+
+				// Check processing time
+				if processingTime, ok := response["processing_time_ms"].(float64); !ok || processingTime <= 0 {
+					t.Errorf("Expected positive processing_time_ms, got %v", response["processing_time_ms"])
+				}
+			},
+		},
+		{
+			name: "queries with filters",
+			requestBody: MultiSearchRequest{
+				Queries: []NamedSearchRequest{
+					{
+						Name:                     "action_movies",
+						Query:                    "action",
+						RestrictSearchableFields: []string{"genres"},
+						Filters: map[string]interface{}{
+							"rating_gte": 7.0,
+						},
+					},
+					{
+						Name:                     "sci_fi_movies",
+						Query:                    "sci-fi",
+						RestrictSearchableFields: []string{"genres"},
+						Filters: map[string]interface{}{
+							"year_gte": 2000,
+						},
+					},
+				},
+				Page:     1,
+				PageSize: 10,
+			},
+			expectedStatus: http.StatusOK,
+			validateFunc: func(t *testing.T, response map[string]interface{}) {
+				// Should have individual results
+				if _, exists := response["results"]; !exists {
+					t.Error("Expected 'results' field in response")
+				}
+			},
+		},
+		{
+			name: "query with field restrictions",
+			requestBody: MultiSearchRequest{
+				Queries: []NamedSearchRequest{
+					{
+						Name:                     "title_only",
+						Query:                    "matrix",
+						RestrictSearchableFields: []string{"title"},
+						RetrivableFields:         []string{"title", "year"},
+					},
+					{
+						Name:                     "cast_only",
+						Query:                    "keanu",
+						RestrictSearchableFields: []string{"cast"},
+						RetrivableFields:         []string{"title", "cast"},
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			validateFunc: func(t *testing.T, response map[string]interface{}) {
+				// Basic validation that response structure is correct
+				if _, exists := response["results"]; !exists {
+					t.Error("Expected 'results' field in response")
+				}
+			},
+		},
+		{
+			name: "query with typo tolerance overrides",
+			requestBody: MultiSearchRequest{
+				Queries: []NamedSearchRequest{
+					{
+						Name:                     "exact_search",
+						Query:                    "matrix",
+						RestrictSearchableFields: []string{"title"},
+						MinWordSizeFor1Typo:      &[]int{0}[0], // Disable typo tolerance
+						MinWordSizeFor2Typos:     &[]int{0}[0],
+					},
+					{
+						Name:                     "fuzzy_search",
+						Query:                    "matric", // Typo
+						RestrictSearchableFields: []string{"title"},
+						MinWordSizeFor1Typo:      &[]int{3}[0], // Enable typo tolerance
+						MinWordSizeFor2Typos:     &[]int{6}[0],
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			validateFunc: func(t *testing.T, response map[string]interface{}) {
+				// Should have individual results for both queries
+				results, ok := response["results"].(map[string]interface{})
+				if !ok {
+					t.Error("Expected 'results' field in response")
+					return
+				}
+
+				if _, exists := results["exact_search"]; !exists {
+					t.Error("Expected 'exact_search' results")
+				}
+				if _, exists := results["fuzzy_search"]; !exists {
+					t.Error("Expected 'fuzzy_search' results")
+				}
+			},
+		},
+		{
+			name: "empty queries array",
+			requestBody: MultiSearchRequest{
+				Queries: []NamedSearchRequest{},
+			},
+			expectedStatus: http.StatusBadRequest,
+			validateFunc: func(t *testing.T, response map[string]interface{}) {
+				if errorMsg, exists := response["error"]; !exists {
+					t.Error("Expected error message for empty queries")
+				} else if !bytes.Contains([]byte(fmt.Sprintf("%v", errorMsg)), []byte("At least one query is required")) {
+					t.Errorf("Expected error about empty queries, got: %v", errorMsg)
+				}
+			},
+		},
+		{
+			name: "duplicate query names",
+			requestBody: MultiSearchRequest{
+				Queries: []NamedSearchRequest{
+					{
+						Name:  "duplicate_name",
+						Query: "matrix",
+					},
+					{
+						Name:  "duplicate_name",
+						Query: "inception",
+					},
+				},
+			},
+			expectedStatus: http.StatusBadRequest,
+			validateFunc: func(t *testing.T, response map[string]interface{}) {
+				if errorMsg, exists := response["error"]; !exists {
+					t.Error("Expected error message for duplicate query names")
+				} else if !bytes.Contains([]byte(fmt.Sprintf("%v", errorMsg)), []byte("Query names must be unique")) {
+					t.Errorf("Expected error about duplicate names, got: %v", errorMsg)
+				}
+			},
+		},
+		{
+			name: "empty query name",
+			requestBody: MultiSearchRequest{
+				Queries: []NamedSearchRequest{
+					{
+						Name:  "",
+						Query: "matrix",
+					},
+				},
+			},
+			expectedStatus: http.StatusBadRequest,
+			validateFunc: func(t *testing.T, response map[string]interface{}) {
+				if errorMsg, exists := response["error"]; !exists {
+					t.Error("Expected error message for empty query name")
+				} else if !bytes.Contains([]byte(fmt.Sprintf("%v", errorMsg)), []byte("non-empty name")) {
+					t.Errorf("Expected error about empty query name, got: %v", errorMsg)
+				}
+			},
+		},
+		{
+			name: "invalid restrict_searchable_fields",
+			requestBody: MultiSearchRequest{
+				Queries: []NamedSearchRequest{
+					{
+						Name:                     "invalid_field_search",
+						Query:                    "matrix",
+						RestrictSearchableFields: []string{"invalid_field"},
+					},
+				},
+			},
+			expectedStatus: http.StatusInternalServerError,
+			validateFunc: func(t *testing.T, response map[string]interface{}) {
+				if errorMsg, exists := response["error"]; !exists {
+					t.Error("Expected error message for invalid searchable field")
+				} else if !bytes.Contains([]byte(fmt.Sprintf("%v", errorMsg)), []byte("not configured as a searchable field")) {
+					t.Errorf("Expected error about invalid searchable field, got: %v", errorMsg)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, _ := json.Marshal(tt.requestBody)
+			req, _ := http.NewRequest("POST", "/indexes/test_multi_search/_multi_search", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			if w.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d. Response: %s", tt.expectedStatus, w.Code, w.Body.String())
+			}
+
+			var response map[string]interface{}
+			if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+				t.Errorf("Failed to unmarshal response: %v", err)
+				return
+			}
+
+			if tt.validateFunc != nil {
+				tt.validateFunc(t, response)
+			}
+		})
+	}
+}
+
+func TestMultiSearchHandler_IndexNotFound(t *testing.T) {
+	eng := setupTestEngine()
+	router := setupTestRouter(eng)
+
+	requestBody := MultiSearchRequest{
+		Queries: []NamedSearchRequest{
+			{
+				Name:  "test_query",
+				Query: "test",
+			},
+		},
+	}
+
+	body, _ := json.Marshal(requestBody)
+	req, _ := http.NewRequest("POST", "/indexes/nonexistent_index/_multi_search", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
+	}
+
+	var response map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Errorf("Failed to unmarshal response: %v", err)
+		return
+	}
+
+	if errorMsg, exists := response["error"]; !exists {
+		t.Error("Expected error message for nonexistent index")
+	} else if !bytes.Contains([]byte(fmt.Sprintf("%v", errorMsg)), []byte("not found")) {
+		t.Errorf("Expected error about index not found, got: %v", errorMsg)
+	}
+}
+
 func TestMain(m *testing.M) {
 	// Setup code before tests
 	code := m.Run()

@@ -1035,6 +1035,143 @@ paths:
               example:
                 error: "Error performing search on index 'movies': internal error"
 
+  /indexes/{indexName}/_multi_search:
+    post:
+      summary: Execute multiple named search queries in parallel
+      description: |
+        Execute multiple search queries in parallel in a single request.
+        Each query is executed concurrently for optimal performance and results are returned individually.
+      parameters:
+        - name: indexName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Name of the index to search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MultiSearchRequest"
+            examples:
+              basic_multi_search:
+                summary: Basic multi-search with different field restrictions
+                value:
+                  queries:
+                    - name: "title_search"
+                      query: "science fiction"
+                      restrict_searchable_fields: ["title"]
+                    - name: "cast_search"
+                      query: "keanu reeves"
+                      restrict_searchable_fields: ["cast"]
+                  page: 1
+                  page_size: 10
+              filtered_multi_search:
+                summary: Multi-search with filters
+                value:
+                  queries:
+                    - name: "recent_action"
+                      query: "action"
+                      restrict_searchable_fields: ["genres"]
+                      filters:
+                        year_gte: 2010
+                        rating_gte: 7.0
+                    - name: "classic_drama"
+                      query: "drama"
+                      restrict_searchable_fields: ["genres"]
+                      filters:
+                        year_lt: 2000
+                        rating_gte: 8.0
+              typo_tolerance_override:
+                summary: Multi-search with typo tolerance overrides
+                value:
+                  queries:
+                    - name: "exact_search"
+                      query: "matrix"
+                      restrict_searchable_fields: ["title"]
+                      min_word_size_for_1_typo: 0
+                      min_word_size_for_2_typos: 0
+                    - name: "fuzzy_search"
+                      query: "matric"
+                      restrict_searchable_fields: ["title"]
+                      min_word_size_for_1_typo: 3
+                      min_word_size_for_2_typos: 6
+      responses:
+        "200":
+          description: Multi-search executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MultiSearchResult"
+              examples:
+                basic_response:
+                  summary: Basic multi-search response
+                  value:
+                    results:
+                      title_search:
+                        hits:
+                          - document:
+                              documentID: "movie_123"
+                              title: "The Matrix"
+                              year: 1999
+                            score: 0.95
+                        total: 1
+                        page: 1
+                        page_size: 10
+                        took: 15
+                        query_id: "uuid-123"
+                      cast_search:
+                        hits:
+                          - document:
+                              documentID: "movie_123"
+                              title: "The Matrix"
+                              cast: ["Keanu Reeves", "Laurence Fishburne"]
+                            score: 0.87
+                          - document:
+                              documentID: "movie_456"
+                              title: "John Wick"
+                              cast: ["Keanu Reeves"]
+                            score: 0.82
+                        total: 2
+                        page: 1
+                        page_size: 10
+                        took: 12
+                        query_id: "uuid-456"
+                    total_queries: 2
+                    processing_time_ms: 27.5
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                empty_queries:
+                  summary: Empty queries array
+                  value:
+                    error: "At least one query is required"
+                duplicate_names:
+                  summary: Duplicate query names
+                  value:
+                    error: "Query names must be unique: 'search1' appears multiple times"
+                empty_name:
+                  summary: Empty query name
+                  value:
+                    error: "All queries must have a non-empty name"
+        "404":
+          description: Index not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     IndexSettings:
@@ -1089,6 +1226,12 @@ components:
             type: string
           description: Fields for which typo tolerance is disabled (only exact matches)
           example: ["isbn", "product_code"]
+        non_typo_tolerant_words:
+          type: array
+          items:
+            type: string
+          description: Specific words that should never be typo-matched (e.g., sensitive terms, proper nouns)
+          example: ["hitler", "stalin", "covid", "nasa"]
         distinct_field:
           type: string
           description: Field to use for deduplication to avoid returning duplicate documents
@@ -1125,6 +1268,12 @@ components:
             type: string
           description: Fields for which typo tolerance should be disabled (only exact matches)
           example: ["isbn", "product_code"]
+        non_typo_tolerant_words:
+          type: array
+          items:
+            type: string
+          description: Specific words that should never be typo-matched (e.g., sensitive terms, proper nouns)
+          example: ["hitler", "stalin", "covid", "nasa"]
         distinct_field:
           type: string
           description: Field to use for deduplication to avoid returning duplicate documents
@@ -1572,6 +1721,114 @@ components:
       required:
         - current
         - total
+
+         MultiSearchRequest:
+       type: object
+       required:
+         - queries
+       properties:
+         queries:
+           type: array
+           items:
+             $ref: "#/components/schemas/NamedSearchRequest"
+           description: List of named search queries to execute
+           minItems: 1
+         page:
+           type: integer
+           minimum: 1
+           default: 1
+           description: Page number for individual query results
+           example: 1
+         page_size:
+           type: integer
+           minimum: 1
+           maximum: 100
+           default: 10
+           description: Number of results per page for individual query results
+           example: 10
+
+    NamedSearchRequest:
+      type: object
+      required:
+        - name
+        - query
+      properties:
+        name:
+          type: string
+          description: Unique identifier for this query within the multi-search request
+          example: "title_search"
+        query:
+          type: string
+          description: Search query string
+          example: "matrix"
+        restrict_searchable_fields:
+          type: array
+          items:
+            type: string
+          description: |
+            Optional subset of searchable fields to search in. If not provided, searches all configured searchable fields.
+          example: ["title", "description"]
+        retrivable_fields:
+          type: array
+          items:
+            type: string
+          description: |
+            Optional subset of document fields to return in results for this query.
+          example: ["title", "year", "cast"]
+        filters:
+          type: object
+          additionalProperties: true
+          description: |
+            Query-specific filters.
+          example:
+            year_gte: 2000
+            rating_gte: 8.0
+        min_word_size_for_1_typo:
+          type: integer
+          minimum: 0
+          description: |
+            Query-specific override for minimum word size to allow 1 typo.
+          example: 4
+        min_word_size_for_2_typos:
+          type: integer
+          minimum: 0
+          description: |
+            Query-specific override for minimum word size to allow 2 typos.
+          example: 7
+
+    MultiSearchResult:
+      type: object
+      properties:
+        results:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/SearchResult"
+          description: |
+            Individual search results keyed by query name.
+          example:
+            title_search:
+              hits: []
+              total: 5
+              page: 1
+              page_size: 10
+              took: 12
+              query_id: "uuid-1"
+            cast_search:
+              hits: []
+              total: 3
+              page: 1
+              page_size: 10
+              took: 8
+              query_id: "uuid-2"
+        total_queries:
+          type: integer
+          description: Number of queries executed
+          example: 2
+        processing_time_ms:
+          type: number
+          format: float
+          description: Total processing time in milliseconds
+          example: 27.5
 
   examples:
     MovieIndex:

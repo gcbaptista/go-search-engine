@@ -41,6 +41,31 @@ type SearchQuery struct {
 	MinWordSizeFor2Typos     *int     `json:"min_word_size_for_2_typos,omitempty"`  // Optional: override index setting for minimum word size for 2 typos
 }
 
+// MultiSearchQuery represents a request to execute multiple named search queries
+type MultiSearchQuery struct {
+	Queries  []NamedSearchQuery `json:"queries"`
+	Page     int                `json:"page,omitempty"`
+	PageSize int                `json:"page_size,omitempty"`
+}
+
+// NamedSearchQuery represents a single named search query within a multi-search request
+type NamedSearchQuery struct {
+	Name                     string                 `json:"name"`
+	Query                    string                 `json:"query"`
+	RestrictSearchableFields []string               `json:"restrict_searchable_fields,omitempty"`
+	RetrivableFields         []string               `json:"retrivable_fields,omitempty"`
+	Filters                  map[string]interface{} `json:"filters,omitempty"`
+	MinWordSizeFor1Typo      *int                   `json:"min_word_size_for_1_typo,omitempty"`
+	MinWordSizeFor2Typos     *int                   `json:"min_word_size_for_2_typos,omitempty"`
+}
+
+// MultiSearchResult represents the response from a multi-search operation
+type MultiSearchResult struct {
+	Results          map[string]SearchResult `json:"results"`
+	TotalQueries     int                     `json:"total_queries"`
+	ProcessingTimeMs float64                 `json:"processing_time_ms"`
+}
+
 // Indexer defines operations for adding data to an index
 type Indexer interface {
 	AddDocuments(docs []model.Document) error
@@ -51,6 +76,11 @@ type Indexer interface {
 // Searcher defines operations for querying an index
 type Searcher interface {
 	Search(query SearchQuery) (SearchResult, error)
+}
+
+// MultiSearcher defines operations for performing multiple queries in a single request
+type MultiSearcher interface {
+	MultiSearch(query MultiSearchQuery) (*MultiSearchResult, error)
 }
 
 // IndexManager manages the lifecycle of indices
@@ -86,5 +116,6 @@ type JobManager interface {
 type IndexAccessor interface {
 	Indexer
 	Searcher
+	MultiSearcher
 	Settings() config.IndexSettings
 }
