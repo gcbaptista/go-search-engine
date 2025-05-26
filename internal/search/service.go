@@ -496,7 +496,7 @@ func (s *Service) Search(query services.SearchQuery) (services.SearchResult, err
 		}
 
 		finalSelectHits = append(finalSelectHits, services.HitResult{
-			Document:     s.filterDocumentFields(ch.doc, query.RetrivableFields),
+			Document:     s.filterDocumentFields(ch.doc, query.RetrievableFields),
 			Score:        ch.score,
 			FieldMatches: matchedTermsResult,
 			Info:         hitInfo,

@@ -740,8 +740,8 @@ func TestRestrictSearchableFields(t *testing.T) {
 	})
 }
 
-// TestRetrivableFields tests the functionality of limiting returned document fields
-func TestRetrivableFields(t *testing.T) {
+// TestRetrievableFields tests the functionality of limiting returned document fields
+func TestRetrievableFields(t *testing.T) {
 	docID1 := "test_movie_1"
 	docID2 := "test_movie_2"
 
@@ -770,11 +770,11 @@ func TestRetrivableFields(t *testing.T) {
 		t.Fatalf("Failed to add documents: %v", err)
 	}
 
-	t.Run("no retrivable_fields specified - returns all fields", func(t *testing.T) {
+	t.Run("no retrievable_fields specified - returns all fields", func(t *testing.T) {
 		query := services.SearchQuery{
 			QueryString:              "Matrix",
 			RestrictSearchableFields: []string{"title", "description"},
-			RetrivableFields:         []string{}, // Empty means return all fields
+			RetrievableFields:         []string{}, // Empty means return all fields
 		}
 		result, err := service.Search(query)
 		if err != nil {
@@ -795,11 +795,11 @@ func TestRetrivableFields(t *testing.T) {
 		}
 	})
 
-	t.Run("retrivable_fields specified - returns only specified fields", func(t *testing.T) {
+	t.Run("retrievable_fields specified - returns only specified fields", func(t *testing.T) {
 		query := services.SearchQuery{
 			QueryString:              "Matrix",
 			RestrictSearchableFields: []string{"title", "description"},
-			RetrivableFields:         []string{"title", "year", "rating"}, // Only these fields should be returned
+			RetrievableFields:         []string{"title", "year", "rating"}, // Only these fields should be returned
 		}
 		result, err := service.Search(query)
 		if err != nil {
@@ -836,11 +836,11 @@ func TestRetrivableFields(t *testing.T) {
 		}
 	})
 
-	t.Run("retrivable_fields with documentID always included", func(t *testing.T) {
+	t.Run("retrievable_fields with documentID always included", func(t *testing.T) {
 		query := services.SearchQuery{
 			QueryString:              "Matrix",
 			RestrictSearchableFields: []string{"title", "description"},
-			RetrivableFields:         []string{"title"}, // Only title specified, but documentID should still be included
+			RetrievableFields:         []string{"title"}, // Only title specified, but documentID should still be included
 		}
 		result, err := service.Search(query)
 		if err != nil {
@@ -867,11 +867,11 @@ func TestRetrivableFields(t *testing.T) {
 		}
 	})
 
-	t.Run("retrivable_fields with non-existent field", func(t *testing.T) {
+	t.Run("retrievable_fields with non-existent field", func(t *testing.T) {
 		query := services.SearchQuery{
 			QueryString:              "Matrix",
 			RestrictSearchableFields: []string{"title", "description"},
-			RetrivableFields:         []string{"title", "nonexistent_field"}, // nonexistent_field should be ignored
+			RetrievableFields:         []string{"title", "nonexistent_field"}, // nonexistent_field should be ignored
 		}
 		result, err := service.Search(query)
 		if err != nil {
