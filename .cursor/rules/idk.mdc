@@ -1,0 +1,28 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Cursor Rules - Main Index
+
+This file serves as the main index for all cursor rules. Rules are now organized by domain:
+
+## 📁 Rule Files by Domain
+
+- **Development**: `.cursor/rules/development.md` - Code quality, standards, testing
+- **Git & Workflow**: `.cursor/rules/git-workflow.md` - PR creation, branch management, code review
+- **Cursor Agent**: `.cursor/rules/cursor-agent.md` - Tool workarounds, terminal issues
+
+## 🚨 Critical Rules (Always Apply)
+
+- Always be coherent with what is defined in docs/CLAUDE.md
+- Run complete linting suite after major tasks (see docs/CLAUDE.md Post-Major Task Requirements)
+- Use @.github/pull_request_template.md for all PRs
+- **MUST follow [Conventional Commits](mdc:https:/www.conventionalcommits.org) for all commit messages and PR titles**
+- Try conventional commands first, use workarounds only if errors occur
+
+---
+
+*For detailed rules, refer to the specific domain files above.*
+
+

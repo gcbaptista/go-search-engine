@@ -4,13 +4,12 @@ import "time"
 
 // SearchEvent represents a single search event for analytics tracking
 type SearchEvent struct {
-	IndexName    string                 `json:"index_name"`
-	Query        string                 `json:"query"`
-	SearchType   string                 `json:"search_type"` // "exact_match", "fuzzy_search", "filtered", "wildcard"
-	ResponseTime time.Duration          `json:"response_time"`
-	ResultCount  int                    `json:"result_count"`
-	Timestamp    time.Time              `json:"timestamp"`
-	Filters      map[string]interface{} `json:"filters,omitempty"`
+	IndexName    string        `json:"index_name"`
+	Query        string        `json:"query"`
+	SearchType   string        `json:"search_type"` // "exact_match", "fuzzy_search", "filtered", "wildcard"
+	ResponseTime time.Duration `json:"response_time"`
+	ResultCount  int           `json:"result_count"`
+	Timestamp    time.Time     `json:"timestamp"`
 }
 
 // PopularSearch represents aggregated data for popular search terms

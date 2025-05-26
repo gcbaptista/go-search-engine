@@ -358,17 +358,8 @@ func (s *Service) Search(query services.SearchQuery) (services.SearchResult, err
 			continue
 		}
 
-		// Apply filters (both legacy and new filter expressions)
+		// Apply filter expression if any
 		var filterScore float64
-
-		// Apply legacy filters first
-		if len(query.Filters) > 0 {
-			if !s.docMatchesFilters(doc, query.Filters) {
-				continue
-			}
-		}
-
-		// Apply new filter expression if any
 		if query.FilterExpression != nil {
 			matches, score := s.evaluateFilterExpression(doc, *query.FilterExpression)
 			if !matches {
@@ -866,4 +857,289 @@ func (s *Service) evaluateFilterCondition(doc model.Document, condition services
 	}
 
 	return applyFilterLogic(concreteDocFieldVal, operator, filterVal, fieldName, s.settings.Name)
+}
+
+// convertToFloat64 converts various numeric types to float64
+func convertToFloat64(val interface{}) (float64, bool) {
+	switch v := val.(type) {
+	case float64:
+		return v, true
+	case float32:
+		return float64(v), true
+	case int:
+		return float64(v), true
+	case int8:
+		return float64(v), true
+	case int16:
+		return float64(v), true
+	case int32:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case uint:
+		return float64(v), true
+	case uint8:
+		return float64(v), true
+	case uint16:
+		return float64(v), true
+	case uint32:
+		return float64(v), true
+	case uint64:
+		return float64(v), true
+	case string:
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f, true
+		}
+	}
+	return 0, false
+}
+
+// applyFilterLogic applies the filter logic based on the operator for new filter expressions
+func applyFilterLogic(docFieldVal interface{}, operator string, filterValue interface{}, fieldNameForDebug, indexNameForDebug string) bool {
+	switch operator {
+	case "", "_exact":
+		return applyEqualityFilter(docFieldVal, filterValue)
+	case "_ne":
+		return !applyEqualityFilter(docFieldVal, filterValue)
+	case "_gt":
+		return applyComparisonFilter(docFieldVal, filterValue, "gt")
+	case "_gte":
+		return applyComparisonFilter(docFieldVal, filterValue, "gte")
+	case "_lt":
+		return applyComparisonFilter(docFieldVal, filterValue, "lt")
+	case "_lte":
+		return applyComparisonFilter(docFieldVal, filterValue, "lte")
+	case "_contains":
+		return applyContainsFilter(docFieldVal, filterValue)
+	case "_ncontains":
+		return !applyContainsFilter(docFieldVal, filterValue)
+	case "_contains_any_of":
+		return applyContainsAnyOfFilter(docFieldVal, filterValue)
+	default:
+		log.Printf("Warning: Unknown filter operator '%s' for field '%s' in index '%s'. Treating as equality.", operator, fieldNameForDebug, indexNameForDebug)
+		return applyEqualityFilter(docFieldVal, filterValue)
+	}
+}
+
+// applyEqualityFilter checks if two values are equal
+func applyEqualityFilter(docFieldVal, filterValue interface{}) bool {
+	// Handle array fields
+	if docArray, isArray := docFieldVal.([]interface{}); isArray {
+		for _, item := range docArray {
+			if compareValues(item, filterValue) {
+				return true
+			}
+		}
+		return false
+	}
+
+	return compareValues(docFieldVal, filterValue)
+}
+
+// applyComparisonFilter applies comparison operators (gt, gte, lt, lte)
+func applyComparisonFilter(docFieldVal, filterValue interface{}, operator string) bool {
+	// Handle array fields - check if any element satisfies the condition
+	if docArray, isArray := docFieldVal.([]interface{}); isArray {
+		for _, item := range docArray {
+			if compareValuesWithOperator(item, filterValue, operator) {
+				return true
+			}
+		}
+		return false
+	}
+
+	return compareValuesWithOperator(docFieldVal, filterValue, operator)
+}
+
+// applyContainsFilter checks if a field contains a value
+func applyContainsFilter(docFieldVal, filterValue interface{}) bool {
+	// Handle array fields - check if any element contains the filter value
+	if docArray, isArray := docFieldVal.([]interface{}); isArray {
+		for _, item := range docArray {
+			if itemStr, isStr := item.(string); isStr {
+				if filterStr, isFilterStr := filterValue.(string); isFilterStr {
+					if strings.Contains(strings.ToLower(itemStr), strings.ToLower(filterStr)) {
+						return true
+					}
+				}
+			}
+		}
+		return false
+	}
+
+	// Handle string array fields
+	if docStrArray, isStrArray := docFieldVal.([]string); isStrArray {
+		for _, item := range docStrArray {
+			if filterStr, isFilterStr := filterValue.(string); isFilterStr {
+				if strings.Contains(strings.ToLower(item), strings.ToLower(filterStr)) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	// Handle single string field
+	if docStr, isDocStr := docFieldVal.(string); isDocStr {
+		if filterStr, isFilterStr := filterValue.(string); isFilterStr {
+			return strings.Contains(strings.ToLower(docStr), strings.ToLower(filterStr))
+		}
+	}
+
+	return false
+}
+
+// applyContainsAnyOfFilter checks if a field contains any of the provided values
+func applyContainsAnyOfFilter(docFieldVal, filterValue interface{}) bool {
+	// Filter value should be an array
+	filterArray, isFilterArray := filterValue.([]interface{})
+	if !isFilterArray {
+		return false
+	}
+
+	// Handle array fields - check if any element matches any filter value
+	if docArray, isArray := docFieldVal.([]interface{}); isArray {
+		for _, docItem := range docArray {
+			for _, filterItem := range filterArray {
+				if compareValues(docItem, filterItem) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	// Handle string array fields
+	if docStrArray, isStrArray := docFieldVal.([]string); isStrArray {
+		for _, docItem := range docStrArray {
+			for _, filterItem := range filterArray {
+				if compareValues(docItem, filterItem) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	// Handle single field - check if it matches any filter value
+	for _, filterItem := range filterArray {
+		if compareValues(docFieldVal, filterItem) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// compareValues compares two values for equality
+func compareValues(docVal, filterVal interface{}) bool {
+	// Direct equality check
+	if docVal == filterVal {
+		return true
+	}
+
+	// String comparison (case-sensitive)
+	if docStr, isDocStr := docVal.(string); isDocStr {
+		if filterStr, isFilterStr := filterVal.(string); isFilterStr {
+			return docStr == filterStr
+		}
+	}
+
+	// Numeric comparison
+	if docFloat, docOk := convertToFloat64(docVal); docOk {
+		if filterFloat, filterOk := convertToFloat64(filterVal); filterOk {
+			return docFloat == filterFloat
+		}
+	}
+
+	// Time comparison
+	if docTime, docOk := convertToTime(docVal); docOk {
+		if filterTime, filterOk := convertToTime(filterVal); filterOk {
+			return docTime.Equal(filterTime)
+		}
+	}
+
+	return false
+}
+
+// compareValuesWithOperator compares two values with a specific operator
+func compareValuesWithOperator(docVal, filterVal interface{}, operator string) bool {
+	// Numeric comparison
+	if docFloat, docOk := convertToFloat64(docVal); docOk {
+		if filterFloat, filterOk := convertToFloat64(filterVal); filterOk {
+			switch operator {
+			case "gt":
+				return docFloat > filterFloat
+			case "gte":
+				return docFloat >= filterFloat
+			case "lt":
+				return docFloat < filterFloat
+			case "lte":
+				return docFloat <= filterFloat
+			}
+		}
+	}
+
+	// Time comparison
+	if docTime, docOk := convertToTime(docVal); docOk {
+		if filterTime, filterOk := convertToTime(filterVal); filterOk {
+			switch operator {
+			case "gt":
+				return docTime.After(filterTime)
+			case "gte":
+				return docTime.After(filterTime) || docTime.Equal(filterTime)
+			case "lt":
+				return docTime.Before(filterTime)
+			case "lte":
+				return docTime.Before(filterTime) || docTime.Equal(filterTime)
+			}
+		}
+	}
+
+	// String comparison
+	if docStr, isDocStr := docVal.(string); isDocStr {
+		if filterStr, isFilterStr := filterVal.(string); isFilterStr {
+			switch operator {
+			case "gt":
+				return docStr > filterStr
+			case "gte":
+				return docStr >= filterStr
+			case "lt":
+				return docStr < filterStr
+			case "lte":
+				return docStr <= filterStr
+			}
+		}
+	}
+
+	return false
+}
+
+// convertToTime converts various time representations to time.Time
+func convertToTime(val interface{}) (time.Time, bool) {
+	switch v := val.(type) {
+	case time.Time:
+		return v, true
+	case string:
+		// Try different time formats
+		formats := []string{
+			time.RFC3339Nano,
+			time.RFC3339,
+			"2006-01-02T15:04:05",
+			"2006-01-02 15:04:05",
+			"2006-01-02",
+		}
+		for _, format := range formats {
+			if t, err := time.Parse(format, v); err == nil {
+				return t, true
+			}
+		}
+	case int64:
+		// Unix timestamp
+		return time.Unix(v, 0), true
+	case float64:
+		// Unix timestamp as float
+		return time.Unix(int64(v), 0), true
+	}
+	return time.Time{}, false
 }

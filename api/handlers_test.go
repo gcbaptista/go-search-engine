@@ -211,10 +211,7 @@ func TestSearchHandler(t *testing.T) {
 		{
 			name: "search with filters",
 			requestBody: SearchRequest{
-				Query: "Go",
-				Filters: map[string]interface{}{
-					"category": "programming",
-				},
+				Query:                    "Go",
 				Page:                     1,
 				PageSize:                 10,
 				RestrictSearchableFields: []string{"Title", "content"},
@@ -830,17 +827,11 @@ func TestMultiSearchHandler(t *testing.T) {
 						Name:                     "action_movies",
 						Query:                    "action",
 						RestrictSearchableFields: []string{"genres"},
-						Filters: map[string]interface{}{
-							"rating_gte": 7.0,
-						},
 					},
 					{
 						Name:                     "sci_fi_movies",
 						Query:                    "sci-fi",
 						RestrictSearchableFields: []string{"genres"},
-						Filters: map[string]interface{}{
-							"year_gte": 2000,
-						},
 					},
 				},
 				Page:     1,

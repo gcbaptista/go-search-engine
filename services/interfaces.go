@@ -33,8 +33,7 @@ type SearchResult struct {
 
 type SearchQuery struct {
 	QueryString              string
-	Filters                  map[string]interface{} // e.g., {"genre": "Action", "year_gt": 2000} - legacy simple filters
-	FilterExpression         *FilterExpression      `json:"filter_expression,omitempty"` // New complex filter expressions
+	FilterExpression         *FilterExpression `json:"filter_expression,omitempty"` // Complex filter expressions
 	Page                     int
 	PageSize                 int
 	RestrictSearchableFields []string `json:"restrict_searchable_fields,omitempty"` // Optional: subset of searchable fields to search in
@@ -52,14 +51,13 @@ type MultiSearchQuery struct {
 
 // NamedSearchQuery represents a single named search query within a multi-search request
 type NamedSearchQuery struct {
-	Name                     string                 `json:"name"`
-	Query                    string                 `json:"query"`
-	RestrictSearchableFields []string               `json:"restrict_searchable_fields,omitempty"`
-	RetrivableFields         []string               `json:"retrivable_fields,omitempty"`
-	Filters                  map[string]interface{} `json:"filters,omitempty"`
-	FilterExpression         *FilterExpression      `json:"filter_expression,omitempty"`
-	MinWordSizeFor1Typo      *int                   `json:"min_word_size_for_1_typo,omitempty"`
-	MinWordSizeFor2Typos     *int                   `json:"min_word_size_for_2_typos,omitempty"`
+	Name                     string            `json:"name"`
+	Query                    string            `json:"query"`
+	RestrictSearchableFields []string          `json:"restrict_searchable_fields,omitempty"`
+	RetrivableFields         []string          `json:"retrivable_fields,omitempty"`
+	FilterExpression         *FilterExpression `json:"filter_expression,omitempty"`
+	MinWordSizeFor1Typo      *int              `json:"min_word_size_for_1_typo,omitempty"`
+	MinWordSizeFor2Typos     *int              `json:"min_word_size_for_2_typos,omitempty"`
 }
 
 // MultiSearchResult represents the response from a multi-search operation
