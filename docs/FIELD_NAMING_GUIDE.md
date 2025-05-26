@@ -8,7 +8,8 @@
 
 ### The Problem
 
-The search engine uses underscores (`_`) to separate field names from filter operators. This can create parsing conflicts if your field names end with operator keywords.
+The search engine uses underscores (`_`) to separate field names from filter operators. This can create parsing
+conflicts if your field names end with operator keywords.
 
 ### Examples of Problematic Field Names
 
@@ -30,7 +31,7 @@ The search engine uses underscores (`_`) to separate field names from filter ope
 ### Filter Operators to Avoid as Field Name Suffixes
 
 | Operator           | Purpose                | Don't end field names with |
-| ------------------ | ---------------------- | -------------------------- |
+|--------------------|------------------------|----------------------------|
 | `_exact`           | Exact match            | `*_exact`                  |
 | `_ne`              | Not equal              | `*_ne`                     |
 | `_gt`              | Greater than           | `*_gt`                     |
