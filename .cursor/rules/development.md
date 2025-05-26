@@ -3,6 +3,12 @@
 ## Code Quality & Standards
 
 - Always be coherent with what is defined in docs/CLAUDE.md. If any assumption in this file changes, make sure you reflect on it.
+- **🚫 CRITICAL: NO BACKWARD COMPATIBILITY OR DEPRECATED CODE**
+  - Remove old code completely when implementing new features
+  - Don't maintain legacy systems or deprecated functions
+  - Clean up unused imports, functions, and structures
+  - When refactoring, delete the old implementation entirely
+  - No "TODO: remove deprecated" comments - remove immediately
 - I don't want any comments related to refactors, only leave a comment if they clarify the code
 - After finishing any major task (feature implementation, significant refactoring, API changes), MUST run the complete linting suite as defined in docs/CLAUDE.md Post-Major Task Requirements section
 - Follow all linting rules and code quality standards defined in docs/CLAUDE.md

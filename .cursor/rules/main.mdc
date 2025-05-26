@@ -17,6 +17,7 @@ This README serves as the main index for all cursor rules. Rules are organized b
 ## 🚨 Critical Rules (Always Apply)
 
 - Always be coherent with what is defined in docs/CLAUDE.md
+- **🚫 NO BACKWARD COMPATIBILITY OR DEPRECATED CODE** - Remove old code completely, don't maintain legacy systems
 - Run complete linting suite after major tasks (see docs/CLAUDE.md Post-Major Task Requirements)
 - Use @.github/pull_request_template.md for all PRs
 - **MUST follow [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages and PR titles**
