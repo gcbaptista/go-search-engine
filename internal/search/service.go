@@ -2,7 +2,9 @@ package search
 
 import (
 	"fmt"
+	"log"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -70,21 +72,53 @@ func (s *Service) UpdateTypoFinder() {
 
 const defaultPageSize = 10
 
-// candidateHit represents a document candidate during search processing
-type candidateHit struct {
-	doc                      model.Document
-	score                    float64
-	matchedQueryTermsByField map[string]map[string]struct{} // FieldName -> queryToken -> struct{}
-}
-
 // Search performs a search operation based on the query.
 func (s *Service) Search(query services.SearchQuery) (services.SearchResult, error) {
 	startTime := time.Now()
 
-	// Determine effective searchable fields
-	_, isFieldAllowed, err := s.determineSearchableFields(query)
-	if err != nil {
-		return services.SearchResult{}, err
+	// Determine effective searchable fields based on query and index settings
+	var effectiveSearchableFields []string
+	var isFieldAllowed func(string) bool
+
+	if len(query.RestrictSearchableFields) > 0 {
+		// RestrictSearchableFields provided - validate and AND with configured searchable fields
+		configuredFields := make(map[string]bool)
+		for _, field := range s.settings.SearchableFields {
+			configuredFields[field] = true
+		}
+
+		// Validate that restricted fields are a subset of configured searchable fields
+		for _, restrictedField := range query.RestrictSearchableFields {
+			if !configuredFields[restrictedField] {
+				return services.SearchResult{}, fmt.Errorf("restricted searchable field '%s' is not configured as a searchable field in index settings", restrictedField)
+			}
+		}
+
+		// Use the intersection (AND) of RestrictSearchableFields with configured searchable fields
+		effectiveSearchableFields = query.RestrictSearchableFields
+
+		// Create field restriction checker
+		allowedFields := make(map[string]bool)
+		for _, field := range effectiveSearchableFields {
+			allowedFields[field] = true
+		}
+
+		isFieldAllowed = func(fieldName string) bool {
+			return allowedFields[fieldName]
+		}
+	} else {
+		// RestrictSearchableFields not provided - use all configured searchable fields
+		effectiveSearchableFields = s.settings.SearchableFields
+
+		// Create field restriction checker
+		allowedFields := make(map[string]bool)
+		for _, field := range effectiveSearchableFields {
+			allowedFields[field] = true
+		}
+
+		isFieldAllowed = func(fieldName string) bool {
+			return allowedFields[fieldName]
+		}
 	}
 
 	page := query.Page
@@ -107,125 +141,20 @@ func (s *Service) Search(query services.SearchQuery) (services.SearchResult, err
 	defer s.invertedIndex.Mu.RUnlock()
 	defer s.documentStore.Mu.RUnlock()
 
-	// Find document matches for each query token
-	docMatchesByQueryToken := s.findDocumentMatches(originalQueryTokens, isFieldAllowed, query)
-
-	// Collect candidate documents
-	candidatesByDocID := s.collectCandidates(docMatchesByQueryToken, originalQueryTokens)
-
-	// Apply filters
-	filteredCandidates := s.applyFilters(candidatesByDocID, query.Filters)
-
-	// Score and sort candidates
-	scoredCandidates := s.scoreAndSortCandidates(filteredCandidates, originalQueryTokens)
-
-	// Apply deduplication if needed
-	if s.settings.DistinctField != "" {
-		scoredCandidates = s.deduplicateCandidates(scoredCandidates, s.settings.DistinctField)
-	}
-
-	// Paginate results
-	total := len(scoredCandidates)
-	start := (page - 1) * pageSize
-	end := start + pageSize
-	if start >= total {
-		start = total
-	}
-	if end > total {
-		end = total
-	}
-
-	paginatedCandidates := scoredCandidates[start:end]
-
-	// Convert to hit results
-	hits := make([]services.HitResult, len(paginatedCandidates))
-	for i, candidate := range paginatedCandidates {
-		// Filter document fields if needed
-		doc := s.filterDocumentFields(candidate.doc, query.RetrivableFields)
-
-		// Convert matchedQueryTermsByField to FieldMatches format
-		fieldMatches := make(map[string][]string)
-		for fieldName, queryTerms := range candidate.matchedQueryTermsByField {
-			terms := make([]string, 0, len(queryTerms))
-			for term := range queryTerms {
-				terms = append(terms, term)
-			}
-			if len(terms) > 0 {
-				fieldMatches[fieldName] = terms
-			}
-		}
-
-		hits[i] = services.HitResult{
-			Document:     doc,
-			Score:        candidate.score,
-			FieldMatches: fieldMatches,
-		}
-	}
-
-	queryUUID := uuid.New().String()
-	return services.SearchResult{
-		Hits:     hits,
-		Total:    total,
-		Page:     page,
-		PageSize: pageSize,
-		Took:     time.Since(startTime).Milliseconds(),
-		QueryId:  queryUUID,
-	}, nil
-}
-
-// determineSearchableFields determines which fields can be searched based on query and settings
-func (s *Service) determineSearchableFields(query services.SearchQuery) ([]string, func(string) bool, error) {
-	var effectiveSearchableFields []string
-	var isFieldAllowed func(string) bool
-
-	if len(query.RestrictSearchableFields) > 0 {
-		// RestrictSearchableFields provided - validate and AND with configured searchable fields
-		configuredFields := make(map[string]bool)
-		for _, field := range s.settings.SearchableFields {
-			configuredFields[field] = true
-		}
-
-		// Validate that restricted fields are a subset of configured searchable fields
-		for _, restrictedField := range query.RestrictSearchableFields {
-			if !configuredFields[restrictedField] {
-				return nil, nil, fmt.Errorf("restricted searchable field '%s' is not configured as a searchable field in index settings", restrictedField)
-			}
-		}
-
-		// Use the intersection (AND) of RestrictSearchableFields with configured searchable fields
-		effectiveSearchableFields = query.RestrictSearchableFields
-
-		// Create field restriction checker
-		allowedFields := make(map[string]bool)
-		for _, field := range effectiveSearchableFields {
-			allowedFields[field] = true
-		}
-		isFieldAllowed = func(fieldName string) bool {
-			return allowedFields[fieldName]
-		}
-	} else {
-		// RestrictSearchableFields not provided - use all configured searchable fields
-		effectiveSearchableFields = s.settings.SearchableFields
-
-		// Create field restriction checker
-		allowedFields := make(map[string]bool)
-		for _, field := range effectiveSearchableFields {
-			allowedFields[field] = true
-		}
-		isFieldAllowed = func(fieldName string) bool {
-			return allowedFields[fieldName]
-		}
-	}
-
-	return effectiveSearchableFields, isFieldAllowed, nil
-}
-
-// findDocumentMatches finds all document matches for the given query tokens
-func (s *Service) findDocumentMatches(originalQueryTokens []string, isFieldAllowed func(string) bool, query services.SearchQuery) map[string]map[uint32][]index.PostingEntry {
+	// Per query token, store map of DocID to list of posting entries (can match multiple fields)
 	docMatchesByQueryToken := make(map[string]map[uint32][]index.PostingEntry)
+	// For typo suggestions, we also need to know which original query token a typo belongs to.
+	// Map: originalQueryToken -> docID -> []PostingEntry
+	docMatchesByOriginalQueryTokenForTypos := make(map[string]map[uint32][]index.PostingEntry)
+	// Track which typo term was actually matched for each original query token and docID
+	// Map: originalQueryToken -> docID -> []actualTypoTerm
+	typoTermsMatchedByQueryToken := make(map[string]map[uint32][]string)
 
+	// First pass: collect exact matches for all query tokens
 	for _, queryToken := range originalQueryTokens {
 		docMatchesByQueryToken[queryToken] = make(map[uint32][]index.PostingEntry)
+		docMatchesByOriginalQueryTokenForTypos[queryToken] = make(map[uint32][]index.PostingEntry)
+		typoTermsMatchedByQueryToken[queryToken] = make(map[uint32][]string)
 
 		// 1. Exact matches for the queryToken
 		if postingList, found := s.invertedIndex.Index[queryToken]; found {
@@ -235,274 +164,706 @@ func (s *Service) findDocumentMatches(originalQueryTokens []string, isFieldAllow
 				}
 			}
 		}
+	}
+
+	// Find documents that have exact matches for ALL query tokens
+	docsWithAllExactMatches := make(map[uint32]bool)
+	if len(originalQueryTokens) > 0 {
+		// Start with documents that match the first token
+		for docID := range docMatchesByQueryToken[originalQueryTokens[0]] {
+			docsWithAllExactMatches[docID] = true
+		}
+
+		// Intersect with documents that match each subsequent token
+		for i := 1; i < len(originalQueryTokens); i++ {
+			token := originalQueryTokens[i]
+			newDocsWithAllExactMatches := make(map[uint32]bool)
+			for docID := range docsWithAllExactMatches {
+				if _, hasMatch := docMatchesByQueryToken[token][docID]; hasMatch {
+					newDocsWithAllExactMatches[docID] = true
+				}
+			}
+			docsWithAllExactMatches = newDocsWithAllExactMatches
+		}
+	}
+
+	// Second pass: apply typo tolerance only for documents that don't have all exact matches
+	for _, queryToken := range originalQueryTokens {
 
 		// 2. Typo matches for the queryToken
-		s.findTypoMatches(queryToken, docMatchesByQueryToken, isFieldAllowed, query)
-	}
-
-	return docMatchesByQueryToken
-}
-
-// findTypoMatches finds typo-tolerant matches for a query token
-func (s *Service) findTypoMatches(queryToken string, docMatchesByQueryToken map[string]map[uint32][]index.PostingEntry, isFieldAllowed func(string) bool, query services.SearchQuery) {
-	// Check if this query token is in the non-typo tolerant words list
-	isNonTypoTolerant := false
-	for _, nonTypoWord := range s.settings.NonTypoTolerantWords {
-		if strings.EqualFold(queryToken, nonTypoWord) {
-			isNonTypoTolerant = true
-			break
-		}
-	}
-
-	// Skip typo matching if this word is in the non-typo tolerant list
-	if isNonTypoTolerant {
-		return
-	}
-
-	// Use dual criteria: stop when either 500 tokens found OR 50ms elapsed
-	maxTypoResults := 500
-	timeLimit := 50 * time.Millisecond
-
-	// Use query-level minWordSize settings if provided, otherwise fall back to index settings
-	minWordSizeFor1Typo := s.settings.MinWordSizeFor1Typo
-	if query.MinWordSizeFor1Typo != nil {
-		minWordSizeFor1Typo = *query.MinWordSizeFor1Typo
-	}
-
-	minWordSizeFor2Typos := s.settings.MinWordSizeFor2Typos
-	if query.MinWordSizeFor2Typos != nil {
-		minWordSizeFor2Typos = *query.MinWordSizeFor2Typos
-	}
-
-	// 1-typo matches
-	if minWordSizeFor1Typo > 0 && len(queryToken) >= minWordSizeFor1Typo {
-		typos1 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 1, maxTypoResults, timeLimit)
-		s.processTypoMatches(typos1, queryToken, docMatchesByQueryToken, isFieldAllowed)
-	}
-
-	// 2-typo matches
-	if minWordSizeFor2Typos > 0 && len(queryToken) >= minWordSizeFor2Typos {
-		typos2 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 2, maxTypoResults, timeLimit)
-		s.processTypoMatches(typos2, queryToken, docMatchesByQueryToken, isFieldAllowed)
-	}
-}
-
-// processTypoMatches processes typo matches and adds them to the results
-func (s *Service) processTypoMatches(typos []string, queryToken string, docMatchesByQueryToken map[string]map[uint32][]index.PostingEntry, isFieldAllowed func(string) bool) {
-	for _, typoTerm := range typos {
-		// Check if the typo term itself is in the non-typo tolerant words list
-		isTypoTermNonTypoTolerant := false
+		// Check if this query token is in the non-typo tolerant words list
+		isNonTypoTolerant := false
 		for _, nonTypoWord := range s.settings.NonTypoTolerantWords {
-			if strings.EqualFold(typoTerm, nonTypoWord) {
-				isTypoTermNonTypoTolerant = true
-				break
-			}
-			// Also check if the typo term is a prefix of a non-typo tolerant word
-			if len(typoTerm) < len(nonTypoWord) && strings.HasPrefix(strings.ToLower(nonTypoWord), strings.ToLower(typoTerm)) {
-				isTypoTermNonTypoTolerant = true
+			if strings.EqualFold(queryToken, nonTypoWord) {
+				isNonTypoTolerant = true
 				break
 			}
 		}
 
-		if isTypoTermNonTypoTolerant {
+		// Skip typo matching if this word is in the non-typo tolerant list
+		if !isNonTypoTolerant {
+			// Use dual criteria: stop when either 500 tokens found OR 50ms elapsed
+			maxTypoResults := 500
+			timeLimit := 50 * time.Millisecond
+
+			// Use query-level minWordSize settings if provided, otherwise fall back to index settings
+			minWordSizeFor1Typo := s.settings.MinWordSizeFor1Typo
+			if query.MinWordSizeFor1Typo != nil {
+				minWordSizeFor1Typo = *query.MinWordSizeFor1Typo
+			}
+
+			minWordSizeFor2Typos := s.settings.MinWordSizeFor2Typos
+			if query.MinWordSizeFor2Typos != nil {
+				minWordSizeFor2Typos = *query.MinWordSizeFor2Typos
+			}
+
+			if minWordSizeFor1Typo > 0 && len(queryToken) >= minWordSizeFor1Typo {
+				typos1 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 1, maxTypoResults, timeLimit)
+				for _, typoTerm := range typos1 {
+					// Skip if the typo term is the same as the original query token
+					if typoTerm == queryToken {
+						continue
+					}
+
+					// Check if the typo term itself is in the non-typo tolerant words list
+					// or if it's a prefix that could match non-typo tolerant words
+					isTypoTermNonTypoTolerant := false
+					for _, nonTypoWord := range s.settings.NonTypoTolerantWords {
+						if strings.EqualFold(typoTerm, nonTypoWord) {
+							isTypoTermNonTypoTolerant = true
+							break
+						}
+						// Also check if the typo term is a prefix of a non-typo tolerant word
+						// This prevents partial matches like "stal" matching documents with "stalin"
+						if len(typoTerm) >= 3 && strings.HasPrefix(strings.ToLower(nonTypoWord), strings.ToLower(typoTerm)) {
+							isTypoTermNonTypoTolerant = true
+							break
+						}
+					}
+
+					// Skip this typo if it would match a non-typo tolerant word
+					if isTypoTermNonTypoTolerant {
+						continue
+					}
+
+					if postingList, found := s.invertedIndex.Index[typoTerm]; found {
+						for _, entry := range postingList {
+							if isFieldAllowed(entry.FieldName) {
+								// Skip typo matching for documents that already have exact matches for all query tokens
+								if docsWithAllExactMatches[entry.DocID] {
+									continue
+								}
+								typoEntry := entry
+								typoEntry.Score *= 0.8 // Penalize typo scores slightly
+								docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = append(docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID], typoEntry)
+								typoTermsMatchedByQueryToken[queryToken][entry.DocID] = append(typoTermsMatchedByQueryToken[queryToken][entry.DocID], typoTerm)
+							}
+						}
+					}
+				}
+			}
+
+			if minWordSizeFor2Typos > 0 && len(queryToken) >= minWordSizeFor2Typos {
+				typos2 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 2, maxTypoResults, timeLimit)
+				for _, typoTerm := range typos2 {
+					// Skip if the typo term is the same as the original query token
+					if typoTerm == queryToken {
+						continue
+					}
+
+					// Check if the typo term itself is in the non-typo tolerant words list
+					// or if it's a prefix that could match non-typo tolerant words
+					isTypoTermNonTypoTolerant := false
+					for _, nonTypoWord := range s.settings.NonTypoTolerantWords {
+						if strings.EqualFold(typoTerm, nonTypoWord) {
+							isTypoTermNonTypoTolerant = true
+							break
+						}
+						// Also check if the typo term is a prefix of a non-typo tolerant word
+						// This prevents partial matches like "stal" matching documents with "stalin"
+						if len(typoTerm) >= 3 && strings.HasPrefix(strings.ToLower(nonTypoWord), strings.ToLower(typoTerm)) {
+							isTypoTermNonTypoTolerant = true
+							break
+						}
+					}
+
+					// Skip this typo if it would match a non-typo tolerant word
+					if isTypoTermNonTypoTolerant {
+						continue
+					}
+
+					if postingList, found := s.invertedIndex.Index[typoTerm]; found {
+						for _, entry := range postingList {
+							if isFieldAllowed(entry.FieldName) {
+								// Skip typo matching for documents that already have exact matches for all query tokens
+								if docsWithAllExactMatches[entry.DocID] {
+									continue
+								}
+
+								typoEntry := entry
+								typoEntry.Score *= 0.6 // Penalize 2-typo matches more than 1-typo
+								docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = append(docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID], typoEntry)
+								typoTermsMatchedByQueryToken[queryToken][entry.DocID] = append(typoTermsMatchedByQueryToken[queryToken][entry.DocID], typoTerm)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Find intersection of DocIDs: documents that match ALL originalQueryTokens (either exactly or via typo)
+	intersectedDocIDs := make(map[uint32]bool)
+	if len(originalQueryTokens) > 0 {
+		firstToken := originalQueryTokens[0]
+		// Include docs that matched the first token either exactly or via typo
+		for docID := range docMatchesByQueryToken[firstToken] {
+			intersectedDocIDs[docID] = true
+		}
+		for docID := range docMatchesByOriginalQueryTokenForTypos[firstToken] {
+			intersectedDocIDs[docID] = true // also consider docs that matched via typo
+		}
+
+		for i := 1; i < len(originalQueryTokens); i++ {
+			token := originalQueryTokens[i]
+			currentDocIDsForToken := make(map[uint32]bool)
+			for docID := range docMatchesByQueryToken[token] {
+				currentDocIDsForToken[docID] = true
+			}
+			for docID := range docMatchesByOriginalQueryTokenForTypos[token] {
+				currentDocIDsForToken[docID] = true
+			}
+
+			newIntersectedDocIDs := make(map[uint32]bool)
+			for docID := range intersectedDocIDs {
+				if currentDocIDsForToken[docID] {
+					newIntersectedDocIDs[docID] = true
+				}
+			}
+			intersectedDocIDs = newIntersectedDocIDs
+			if len(intersectedDocIDs) == 0 {
+				break // No common documents left
+			}
+		}
+	}
+
+	// Build final hits from intersectedDocIDs
+	// candidateHit type is now defined in types.go
+	finalCandidateHits := make(map[uint32]*candidateHit) // docID -> candidateHit
+
+	for docID := range intersectedDocIDs {
+		doc, found := s.documentStore.Docs[docID]
+		if !found {
+			log.Printf("Warning: Document with internal ID %d in intersection but not in document store.\n", docID)
 			continue
 		}
 
-		if postingList, found := s.invertedIndex.Index[typoTerm]; found {
-			for _, entry := range postingList {
-				if isFieldAllowed(entry.FieldName) {
-					docMatchesByQueryToken[queryToken][entry.DocID] = append(docMatchesByQueryToken[queryToken][entry.DocID], entry)
+		// Apply filters (both legacy and new filter expressions)
+		var filterScore float64
+
+		// Apply legacy filters first
+		if len(query.Filters) > 0 {
+			if !s.docMatchesFilters(doc, query.Filters) {
+				continue
+			}
+		}
+
+		// Apply new filter expression if any
+		if query.FilterExpression != nil {
+			matches, score := s.evaluateFilterExpression(doc, *query.FilterExpression)
+			if !matches {
+				continue
+			}
+			filterScore = score
+		}
+
+		currentHit := &candidateHit{
+			doc:                      doc,
+			score:                    0,
+			filterScore:              filterScore,
+			matchedQueryTermsByField: make(map[string]map[string]struct{}),
+		}
+
+		// Aggregate scores and matched fields for this docID from all query tokens
+		for _, queryToken := range originalQueryTokens {
+			// Track the best score for this query token for this document
+			bestScoreForToken := 0.0
+
+			// Exact matches
+			if entries, ok := docMatchesByQueryToken[queryToken][docID]; ok {
+				for _, entry := range entries {
+					if isFieldAllowed(entry.FieldName) {
+						if entry.Score > bestScoreForToken {
+							bestScoreForToken = entry.Score
+						}
+						if _, fieldMapExists := currentHit.matchedQueryTermsByField[entry.FieldName]; !fieldMapExists {
+							currentHit.matchedQueryTermsByField[entry.FieldName] = make(map[string]struct{})
+						}
+						currentHit.matchedQueryTermsByField[entry.FieldName][queryToken] = struct{}{}
+					}
+				}
+			}
+
+			// Typo matches (attributed to the original query token)
+			if entries, ok := docMatchesByOriginalQueryTokenForTypos[queryToken][docID]; ok {
+				typoTerms := typoTermsMatchedByQueryToken[queryToken][docID]
+				for i, entry := range entries {
+					if isFieldAllowed(entry.FieldName) {
+						// Only use typo score if it's better than exact match score
+						// (this should rarely happen, but protects against edge cases)
+						if entry.Score > bestScoreForToken {
+							bestScoreForToken = entry.Score
+						}
+						if _, fieldMapExists := currentHit.matchedQueryTermsByField[entry.FieldName]; !fieldMapExists {
+							currentHit.matchedQueryTermsByField[entry.FieldName] = make(map[string]struct{})
+						}
+						// Mark typo matches for display using the actual matched typo term
+						var matchDisplay string
+						if i < len(typoTerms) {
+							matchDisplay = typoTerms[i] + "(typo)"
+						} else {
+							matchDisplay = queryToken + "(typo)" // fallback
+						}
+						currentHit.matchedQueryTermsByField[entry.FieldName][matchDisplay] = struct{}{}
+					}
+				}
+			}
+
+			// Add the best score for this query token to the total
+			currentHit.score += bestScoreForToken
+		}
+		finalCandidateHits[docID] = currentHit
+	}
+
+	// Convert finalCandidateHits map to a slice for sorting
+	finalSelectHits := make([]services.HitResult, 0, len(finalCandidateHits))
+	for _, ch := range finalCandidateHits {
+		matchedTermsResult := make(map[string][]string)
+		numTyposForHit := 0
+		numberExactWordsForHit := 0
+		uniqueMatchedOriginalQueryTokensTypos := make(map[string]struct{})
+		uniqueOriginalQueryTokensExact := make(map[string]struct{})
+
+		// Get full words from all searchable fields of the current document for exactness checking
+		docFullWordsByField := make(map[string][]string)
+		for _, searchableFieldName := range effectiveSearchableFields {
+			if fieldValue, ok := ch.doc[searchableFieldName]; ok {
+				var textContent string
+				switch v := fieldValue.(type) {
+				case string:
+					textContent = v
+				case []interface{}:
+					var parts []string
+					for _, item := range v {
+						if strItem, isStr := item.(string); isStr {
+							parts = append(parts, strItem)
+						}
+					}
+					textContent = strings.Join(parts, " ")
+				case []string:
+					textContent = strings.Join(v, " ")
+				}
+				if textContent != "" {
+					docFullWordsByField[searchableFieldName] = tokenizer.Tokenize(textContent)
 				}
 			}
 		}
-	}
-}
 
-// collectCandidates collects all candidate documents from the matches
-func (s *Service) collectCandidates(docMatchesByQueryToken map[string]map[uint32][]index.PostingEntry, originalQueryTokens []string) map[uint32]*candidateHit {
-	candidatesByDocID := make(map[uint32]*candidateHit)
+		for fieldName, tokensMap := range ch.matchedQueryTermsByField {
+			for tokenFromMap := range tokensMap {
+				matchedTermsResult[fieldName] = append(matchedTermsResult[fieldName], tokenFromMap)
 
-	for _, queryToken := range originalQueryTokens {
-		for docID, entries := range docMatchesByQueryToken[queryToken] {
-			if candidatesByDocID[docID] == nil {
-				doc, exists := s.documentStore.Docs[docID]
-				if !exists {
-					continue
-				}
-				candidatesByDocID[docID] = &candidateHit{
-					doc:                      doc,
-					score:                    0,
-					matchedQueryTermsByField: make(map[string]map[string]struct{}),
+				originalQueryTermForMatch := strings.Split(tokenFromMap, "(typo)")[0]
+
+				if strings.Contains(tokenFromMap, "(typo)") {
+					if _, alreadyCounted := uniqueMatchedOriginalQueryTokensTypos[originalQueryTermForMatch]; !alreadyCounted {
+						numTyposForHit++
+						uniqueMatchedOriginalQueryTokensTypos[originalQueryTermForMatch] = struct{}{}
+					}
+				} else { // Not a typo, check if it's an exact full word match
+					if _, alreadyCounted := uniqueOriginalQueryTokensExact[originalQueryTermForMatch]; !alreadyCounted {
+						// Check against the pre-tokenized full words of the field
+						if fullWordsInField, fieldProcessed := docFullWordsByField[fieldName]; fieldProcessed {
+							for _, docFullWord := range fullWordsInField {
+								if originalQueryTermForMatch == docFullWord {
+									numberExactWordsForHit++
+									uniqueOriginalQueryTokensExact[originalQueryTermForMatch] = struct{}{}
+									break // Found as exact match in this field for this originalQueryTermForMatch
+								}
+							}
+						}
+					}
 				}
 			}
-
-			candidate := candidatesByDocID[docID]
-			for _, entry := range entries {
-				if candidate.matchedQueryTermsByField[entry.FieldName] == nil {
-					candidate.matchedQueryTermsByField[entry.FieldName] = make(map[string]struct{})
-				}
-				candidate.matchedQueryTermsByField[entry.FieldName][queryToken] = struct{}{}
-			}
+			sort.Strings(matchedTermsResult[fieldName])
 		}
+
+		hitInfo := services.HitInfo{
+			NumTypos:         numTyposForHit,
+			NumberExactWords: numberExactWordsForHit,
+			FilterScore:      ch.filterScore,
+		}
+
+		finalSelectHits = append(finalSelectHits, services.HitResult{
+			Document:     s.filterDocumentFields(ch.doc, query.RetrivableFields),
+			Score:        ch.score,
+			FieldMatches: matchedTermsResult,
+			Info:         hitInfo,
+		})
 	}
 
-	return candidatesByDocID
-}
+	// Sort finalSelectHits: Apply ranking criteria first, then by calculated score if no ranking criteria or as fallback
+	sort.SliceStable(finalSelectHits, func(i, j int) bool {
+		itemI := finalSelectHits[i]
+		itemJ := finalSelectHits[j]
 
-// scoreAndSortCandidates scores candidates and sorts them by relevance
-func (s *Service) scoreAndSortCandidates(candidatesByDocID map[uint32]*candidateHit, originalQueryTokens []string) []*candidateHit {
-	candidates := make([]*candidateHit, 0, len(candidatesByDocID))
-	for _, candidate := range candidatesByDocID {
-		// Calculate score based on term frequency and field matches
-		candidate.score = s.calculateScore(candidate, originalQueryTokens)
-		candidates = append(candidates, candidate)
-	}
+		docI := itemI.Document
+		docJ := itemJ.Document
 
-	// Sort by ranking criteria from settings
-	sort.Slice(candidates, func(i, j int) bool {
-		candidateI := candidates[i]
-		candidateJ := candidates[j]
-
-		// Apply ranking criteria in order
+		// Apply ranking criteria first
 		for _, criterion := range s.settings.RankingCriteria {
-			var valI, valJ interface{}
-			var okI, okJ bool
-
+			// Special case: ~score means use the calculated search relevance score
 			if criterion.Field == "~score" {
-				// Special field for search relevance score
-				valI, okI = candidateI.score, true
-				valJ, okJ = candidateJ.score, true
-			} else {
-				// Regular document field
-				valI, okI = candidateI.doc[criterion.Field]
-				valJ, okJ = candidateJ.doc[criterion.Field]
+				if itemI.Score != itemJ.Score {
+					if criterion.Order == "asc" {
+						return itemI.Score < itemJ.Score
+					} else {
+						return itemI.Score > itemJ.Score
+					}
+				}
+				continue // If scores are equal, continue to next criterion
 			}
 
-			// Handle missing fields
+			// Special case: ~filters means use the filter matching score
+			if criterion.Field == "~filters" {
+				filterScoreI := itemI.Info.FilterScore
+				filterScoreJ := itemJ.Info.FilterScore
+				if filterScoreI != filterScoreJ {
+					if criterion.Order == "asc" {
+						return filterScoreI < filterScoreJ
+					} else {
+						return filterScoreI > filterScoreJ
+					}
+				}
+				continue // If filter scores are equal, continue to next criterion
+			}
+
+			valI, okI := docI[criterion.Field]
+			valJ, okJ := docJ[criterion.Field]
+
 			if !okI && !okJ {
-				continue // Both missing, try next criterion
+				continue
 			}
 			if okI && !okJ {
-				return criterion.Order != "asc" // Missing field goes to end
+				return criterion.Order != "asc"
 			}
 			if !okI && okJ {
-				return criterion.Order == "asc" // Missing field goes to end
+				return criterion.Order == "asc"
 			}
 
-			// Compare values
-			if result := s.compareRankingValues(valI, valJ, criterion.Order); result != 0 {
-				return result > 0
+			switch vI := valI.(type) {
+			case string:
+				if vJ, ok := valJ.(string); ok {
+					if vI != vJ {
+						if criterion.Order == "asc" {
+							return vI < vJ
+						} else {
+							return vI > vJ
+						}
+					}
+				}
+			case float64:
+				if vJ, ok := valJ.(float64); ok {
+					if vI != vJ {
+						if criterion.Order == "asc" {
+							return vI < vJ
+						} else {
+							return vI > vJ
+						}
+					}
+				}
+			case int, int8, int16, int32, int64:
+				fI, _ := convertToFloat64(vI)
+				fJ, _ := convertToFloat64(valJ)
+				if fI != fJ {
+					if criterion.Order == "asc" {
+						return fI < fJ
+					} else {
+						return fI > fJ
+					}
+				}
+			case time.Time:
+				if vJ, ok := valJ.(time.Time); ok {
+					if !vI.Equal(vJ) {
+						if criterion.Order == "asc" {
+							return vI.Before(vJ)
+						} else {
+							return vI.After(vJ)
+						}
+					}
+				}
+			default:
+				if strI, isStrI := valI.(string); isStrI {
+					if strJ, isStrJ := valJ.(string); isStrJ {
+						if criterion.Field == "ReleaseDate" { // Example specific field handling
+							tI, errI := time.Parse(time.RFC3339Nano, strI)
+							if errI != nil {
+								tI, _ = time.Parse(time.RFC3339, strI)
+							}
+							tJ, errJ := time.Parse(time.RFC3339Nano, strJ)
+							if errJ != nil {
+								tJ, _ = time.Parse(time.RFC3339, strJ)
+							}
+							if tI.IsZero() || tJ.IsZero() {
+								continue
+							}
+							if !tI.Equal(tJ) {
+								if criterion.Order == "asc" {
+									return tI.Before(tJ)
+								} else {
+									return tI.After(tJ)
+								}
+							}
+						}
+					}
+				}
+				continue
 			}
 		}
 
-		// Final tie-breaker: use document ID for consistency
-		docI := candidateI.doc
-		docJ := candidateJ.doc
-		if idI, okI := docI["documentID"]; okI {
-			if idJ, okJ := docJ["documentID"]; okJ {
-				return fmt.Sprintf("%v", idI) < fmt.Sprintf("%v", idJ)
-			}
+		// Fallback: if no ranking criteria resolved the comparison, sort by search score descending
+		if itemI.Score != itemJ.Score {
+			return itemI.Score > itemJ.Score
 		}
+
 		return false
 	})
 
-	return candidates
+	// Apply deduplication if DistinctField is specified
+	if s.settings.DistinctField != "" {
+		finalSelectHits = s.deduplicateResults(finalSelectHits, s.settings.DistinctField)
+	}
+
+	totalHits := len(finalSelectHits)
+	startIndex := (page - 1) * pageSize
+	endIndex := startIndex + pageSize
+	var paginatedHits []services.HitResult
+	if startIndex < totalHits {
+		if endIndex > totalHits {
+			endIndex = totalHits
+		}
+		paginatedHits = finalSelectHits[startIndex:endIndex]
+	} else {
+		paginatedHits = []services.HitResult{}
+	}
+
+	queryUUID := uuid.New().String()
+
+	return services.SearchResult{
+		Hits:     paginatedHits,
+		Total:    totalHits,
+		Page:     page,
+		PageSize: pageSize,
+		Took:     time.Since(startTime).Milliseconds(),
+		QueryId:  queryUUID,
+	}, nil
 }
 
-// calculateScore calculates the relevance score for a candidate document
-func (s *Service) calculateScore(candidate *candidateHit, originalQueryTokens []string) float64 {
-	score := 0.0
+// deduplicateResults removes duplicate documents based on the specified field.
+// It keeps the first occurrence (highest scoring) of each unique field value.
+func (s *Service) deduplicateResults(hits []services.HitResult, distinctField string) []services.HitResult {
+	if distinctField == "" || len(hits) == 0 {
+		return hits
+	}
 
-	// Count matched query terms
-	matchedTerms := 0
-	for _, queryToken := range originalQueryTokens {
-		for fieldName := range candidate.matchedQueryTermsByField {
-			if _, found := candidate.matchedQueryTermsByField[fieldName][queryToken]; found {
-				matchedTerms++
-				score += 1.0 // Base score for each matched term
-				break        // Count each query term only once per document
-			}
+	seen := make(map[string]bool)
+	deduplicated := make([]services.HitResult, 0, len(hits))
+
+	for _, hit := range hits {
+		// Get the value of the distinct field from the document
+		fieldValue, exists := hit.Document[distinctField]
+		if !exists {
+			// If the field doesn't exist, include the document (can't deduplicate)
+			deduplicated = append(deduplicated, hit)
+			continue
 		}
+
+		// Convert field value to string for comparison
+		var fieldKey string
+		switch v := fieldValue.(type) {
+		case string:
+			fieldKey = v
+		case nil:
+			fieldKey = ""
+		default:
+			fieldKey = fmt.Sprintf("%v", v)
+		}
+
+		// If we haven't seen this field value before, include it
+		if !seen[fieldKey] {
+			seen[fieldKey] = true
+			deduplicated = append(deduplicated, hit)
+		}
+		// Otherwise, skip this duplicate
 	}
 
-	// Boost score based on the number of matched terms
-	if len(originalQueryTokens) > 0 {
-		termMatchRatio := float64(matchedTerms) / float64(len(originalQueryTokens))
-		score *= termMatchRatio
-	}
-
-	// Apply field-based scoring if configured
-	for fieldName := range candidate.matchedQueryTermsByField {
-		// You could add field-specific boosts here based on settings
-		_ = fieldName
-	}
-
-	return score
+	return deduplicated
 }
 
-// compareRankingValues compares two values according to the specified order
-// Returns: > 0 if valI should come before valJ, < 0 if valJ should come before valI, 0 if equal
-func (s *Service) compareRankingValues(valI, valJ interface{}, order string) int {
-	// Handle numeric comparisons
-	if numI, okI := convertToFloat64(valI); okI {
-		if numJ, okJ := convertToFloat64(valJ); okJ {
-			if numI == numJ {
-				return 0
+// convertToInt64 tries to convert an interface{} to int64.
+// It handles int, int8, int16, int32, int64, and numeric strings.
+func convertToInt64(val interface{}) (int64, bool) {
+	switch v := val.(type) {
+	case int:
+		return int64(v), true
+	case int8:
+		return int64(v), true
+	case int16:
+		return int64(v), true
+	case int32:
+		return int64(v), true
+	case int64:
+		return v, true
+	case string:
+		// Try to parse string as int64 for cases where frontend sends integers as strings
+		if parsed, err := strconv.ParseInt(v, 10, 64); err == nil {
+			return parsed, true
+		}
+		return 0, false
+	default:
+		return 0, false
+	}
+}
+
+// evaluateFilterExpression evaluates a complex filter expression with AND/OR logic
+func (s *Service) evaluateFilterExpression(doc model.Document, expr services.FilterExpression) (bool, float64) {
+	// Handle individual filter conditions
+	conditionResults := make([]bool, len(expr.Filters))
+	conditionScores := make([]float64, len(expr.Filters))
+	for i, condition := range expr.Filters {
+		matches := s.evaluateFilterCondition(doc, condition)
+		conditionResults[i] = matches
+		if matches {
+			conditionScores[i] = condition.Score
+		}
+	}
+
+	// Handle nested groups
+	groupResults := make([]bool, len(expr.Groups))
+	groupScores := make([]float64, len(expr.Groups))
+	for i, group := range expr.Groups {
+		matches, score := s.evaluateFilterExpression(doc, group)
+		groupResults[i] = matches
+		if matches {
+			groupScores[i] = score
+		}
+	}
+
+	// Combine all results based on operator
+	allResults := append(conditionResults, groupResults...)
+	allScores := append(conditionScores, groupScores...)
+
+	if len(allResults) == 0 {
+		return true, 0.0 // Empty expression matches with no score
+	}
+
+	switch strings.ToUpper(expr.Operator) {
+	case "OR", "":
+		// OR logic: at least one condition must match
+		// Return score only from matching conditions
+		totalScore := 0.0
+		hasMatch := false
+		for i, result := range allResults {
+			if result {
+				hasMatch = true
+				totalScore += allScores[i]
 			}
-			if order == "asc" {
-				if numI < numJ {
-					return 1
-				}
-				return -1
-			} else { // desc
-				if numI > numJ {
-					return 1
-				}
-				return -1
+		}
+		if hasMatch {
+			return true, totalScore
+		}
+		return false, 0.0
+	case "AND":
+		// AND logic: all conditions must match
+		// Return score from all conditions only if all match
+		for _, result := range allResults {
+			if !result {
+				return false, 0.0
+			}
+		}
+		// All matched, sum all scores
+		totalScore := 0.0
+		for _, score := range allScores {
+			totalScore += score
+		}
+		return true, totalScore
+	default:
+		log.Printf("Warning: Unknown filter expression operator '%s', defaulting to OR", expr.Operator)
+		// Default to OR logic
+		totalScore := 0.0
+		hasMatch := false
+		for i, result := range allResults {
+			if result {
+				hasMatch = true
+				totalScore += allScores[i]
+			}
+		}
+		if hasMatch {
+			return true, totalScore
+		}
+		return false, 0.0
+	}
+}
+
+// evaluateFilterCondition evaluates a single filter condition
+func (s *Service) evaluateFilterCondition(doc model.Document, condition services.FilterCondition) bool {
+	filterableFieldsMap := make(map[string]struct{})
+	for _, field := range s.settings.FilterableFields {
+		filterableFieldsMap[field] = struct{}{}
+	}
+
+	fieldName := condition.Field
+	operator := condition.Operator
+	filterVal := condition.Value
+
+	// If no operator specified, default to exact match for simple values or contains for arrays
+	if operator == "" {
+		// Auto-detect operator based on document field type
+		if docFieldVal, exists := doc[fieldName]; exists {
+			switch docFieldVal.(type) {
+			case []string, []interface{}:
+				operator = "_contains"
+			default:
+				operator = "_exact"
+			}
+		} else {
+			operator = "_exact"
+		}
+	}
+
+	if _, isFilterable := filterableFieldsMap[fieldName]; !isFilterable {
+		log.Printf("Warning (Index: %s): Field '%s' in filter expression is not designated as filterable in settings, but will be evaluated.\n", s.settings.Name, fieldName)
+	}
+
+	docFieldValInterface, docFieldExists := doc[fieldName]
+	if !docFieldExists {
+		log.Printf("Warning (Index: %s, Field: %s): Field not found in document for filter condition. Criterion fails.\n", s.settings.Name, fieldName)
+		return false
+	}
+
+	// Attempt type conversion for specific known types, e.g., dates stored as strings.
+	var concreteDocFieldVal = docFieldValInterface
+	if strings.Contains(strings.ToLower(fieldName), "date") {
+		if strVal, ok := docFieldValInterface.(string); ok {
+			tParsed, err := time.Parse(time.RFC3339Nano, strVal)
+			if err != nil {
+				tParsed, err = time.Parse(time.RFC3339, strVal)
+			}
+			if err == nil {
+				concreteDocFieldVal = tParsed
 			}
 		}
 	}
 
-	// Handle string comparisons
-	if strI, okI := valI.(string); okI {
-		if strJ, okJ := valJ.(string); okJ {
-			if strI == strJ {
-				return 0
-			}
-			if order == "asc" {
-				if strI < strJ {
-					return 1
-				}
-				return -1
-			} else { // desc
-				if strI > strJ {
-					return 1
-				}
-				return -1
-			}
-		}
-	}
-
-	// Handle time comparisons
-	if timeI, okI := convertToTime(valI); okI {
-		if timeJ, okJ := convertToTime(valJ); okJ {
-			if timeI.Equal(timeJ) {
-				return 0
-			}
-			if order == "asc" {
-				if timeI.Before(timeJ) {
-					return 1
-				}
-				return -1
-			} else { // desc
-				if timeI.After(timeJ) {
-					return 1
-				}
-				return -1
-			}
-		}
-	}
-
-	// Default: treat as equal
-	return 0
+	return applyFilterLogic(concreteDocFieldVal, operator, filterVal, fieldName, s.settings.Name)
 }
