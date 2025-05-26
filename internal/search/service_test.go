@@ -310,14 +310,24 @@ func TestDeduplicateResults(t *testing.T) {
 	}
 
 	t.Run("no deduplication when distinct field is empty", func(t *testing.T) {
-		result := service.deduplicateResults(hits, "")
+		// Convert hits to candidateHit format for testing
+		candidates := make([]*candidateHit, len(hits))
+		for i, hit := range hits {
+			candidates[i] = &candidateHit{doc: hit.Document, score: hit.Score}
+		}
+		result := service.deduplicateCandidates(candidates, "")
 		if len(result) != len(hits) {
 			t.Errorf("Expected %d hits, got %d", len(hits), len(result))
 		}
 	})
 
 	t.Run("deduplication by title keeps highest scoring", func(t *testing.T) {
-		result := service.deduplicateResults(hits, "title")
+		// Convert hits to candidateHit format for testing
+		candidates := make([]*candidateHit, len(hits))
+		for i, hit := range hits {
+			candidates[i] = &candidateHit{doc: hit.Document, score: hit.Score}
+		}
+		result := service.deduplicateCandidates(candidates, "title")
 
 		// Should have 3 unique titles: The Matrix, The Dark Knight, Inception
 		if len(result) != 3 {
@@ -327,8 +337,8 @@ func TestDeduplicateResults(t *testing.T) {
 		// Verify the kept documents are the highest scoring ones
 		expectedUUIDs := []string{"1", "3", "5"} // These have the highest scores for each title
 		for i, hit := range result {
-			if hit.Document["documentID"] != expectedUUIDs[i] {
-				t.Errorf("Expected documentID %s at position %d, got %s", expectedUUIDs[i], i, hit.Document["documentID"])
+			if hit.doc["documentID"] != expectedUUIDs[i] {
+				t.Errorf("Expected documentID %s at position %d, got %s", expectedUUIDs[i], i, hit.doc["documentID"])
 			}
 		}
 	})
@@ -345,7 +355,12 @@ func TestDeduplicateResults(t *testing.T) {
 			},
 		}
 
-		result := service.deduplicateResults(hitsWithMissingField, "title")
+		// Convert hits to candidateHit format for testing
+		candidates := make([]*candidateHit, len(hitsWithMissingField))
+		for i, hit := range hitsWithMissingField {
+			candidates[i] = &candidateHit{doc: hit.Document, score: hit.Score}
+		}
+		result := service.deduplicateCandidates(candidates, "title")
 
 		// Both should be kept since one doesn't have the distinct field
 		if len(result) != 2 {
@@ -354,7 +369,12 @@ func TestDeduplicateResults(t *testing.T) {
 	})
 
 	t.Run("deduplication by year", func(t *testing.T) {
-		result := service.deduplicateResults(hits, "year")
+		// Convert hits to candidateHit format for testing
+		candidates := make([]*candidateHit, len(hits))
+		for i, hit := range hits {
+			candidates[i] = &candidateHit{doc: hit.Document, score: hit.Score}
+		}
+		result := service.deduplicateCandidates(candidates, "year")
 
 		// Should have 3 unique years: 1999, 2008, 2010
 		if len(result) != 3 {
@@ -364,7 +384,10 @@ func TestDeduplicateResults(t *testing.T) {
 }
 
 func TestDocMatchesFilters(t *testing.T) {
-	service, _ := setupTestSearchService(t, nil)
+	// Create custom settings that include title and tags as filterable fields
+	settings := newTestIndexSettings()
+	settings.FilterableFields = append(settings.FilterableFields, "title", "tags", "is_available", "release_date")
+	service, _ := setupTestSearchService(t, settings)
 
 	now := time.Now()
 	doc := model.Document{
