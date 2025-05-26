@@ -1,11 +1,12 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: true
 ---
-# Cursor Rules - Main Index
 
-This file serves as the main index for all cursor rules. Rules are now organized by domain:
+# Cursor Rules
+
+This README serves as the main index for all cursor rules. Rules are organized by domain for better maintainability:
 
 ## 📁 Rule Files by Domain
 
@@ -18,10 +19,9 @@ This file serves as the main index for all cursor rules. Rules are now organized
 - Always be coherent with what is defined in docs/CLAUDE.md
 - Run complete linting suite after major tasks (see docs/CLAUDE.md Post-Major Task Requirements)
 - Use @.github/pull_request_template.md for all PRs
+- **MUST follow [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages and PR titles**
 - Try conventional commands first, use workarounds only if errors occur
 
 ---
 
-*For detailed rules, refer to the specific domain files above.*
-
-
+_For detailed rules, refer to the specific domain files above._
