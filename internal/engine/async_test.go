@@ -178,8 +178,10 @@ func TestEngine_AsyncReindexingWithNonExistentIndex(t *testing.T) {
 		t.Error("Expected error for non-existent index")
 	}
 
-	if err != nil && !contains(err.Error(), "not found") {
-		t.Errorf("Expected 'not found' error, got: %v", err)
+	if err != nil {
+		if !contains(err.Error(), "not found") {
+			t.Errorf("Expected 'not found' error, got: %v", err)
+		}
 	}
 }
 

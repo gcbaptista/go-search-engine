@@ -1992,6 +1992,9 @@ func TestExactMatchesScoreHigherThanTypos(t *testing.T) {
 
 	// Verify exact match was found
 	assert.NotNil(t, exactMatchHit, "Should find exact match document")
+	if exactMatchHit == nil {
+		return // Exit early if exact match not found
+	}
 
 	// Log scores for debugging
 	t.Logf("Exact match score: %.2f (typos: %d, exact: %d)",
@@ -2095,6 +2098,9 @@ func TestScoringWithKnownTypos(t *testing.T) {
 	}
 
 	assert.NotNil(t, exactMatch, "Should find exact match document")
+	if exactMatch == nil {
+		return // Exit early if exact match not found
+	}
 	assert.Equal(t, 0, exactMatch.Info.NumTypos, "Exact match should have 0 typos")
 	assert.Equal(t, 2, exactMatch.Info.NumberExactWords, "Exact match should have 2 exact words")
 
