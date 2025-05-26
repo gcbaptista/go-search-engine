@@ -6,7 +6,7 @@
       "description": "Match documents with either Action OR Comedy genre",
       "query": {
         "query": "movie",
-        "filter_expression": {
+        "filters": {
           "operator": "OR",
           "filters": [
             {"field": "genre", "value": "Action", "score": 2.0},
@@ -20,7 +20,7 @@
       "description": "Match documents with Action genre AND premium status",
       "query": {
         "query": "movie",
-        "filter_expression": {
+        "filters": {
           "operator": "AND",
           "filters": [
             {"field": "genre", "value": "Action", "score": 2.0},
@@ -34,7 +34,7 @@
       "description": "Match (Action OR Comedy) AND (premium OR high rating)",
       "query": {
         "query": "movie",
-        "filter_expression": {
+        "filters": {
           "operator": "AND",
           "groups": [
             {
@@ -60,7 +60,7 @@
       "description": "Match documents with specific platform filters",
       "query": {
         "query": "content",
-        "filter_expression": {
+        "filters": {
           "operator": "OR",
           "filters": [
             {"field": "filters", "operator": "_contains", "value": "plat_pc_dev_computer", "score": 2.0},
@@ -74,7 +74,7 @@
       "description": "Real-world example inspired by Algolia's complex filter syntax",
       "query": {
         "query": "thriller",
-        "filter_expression": {
+        "filters": {
           "operator": "AND",
           "groups": [
             {
@@ -116,26 +116,7 @@
         }
       }
     },
-    {
-      "name": "Mixed Legacy and Expression Filters",
-      "description": "Combining legacy simple filters with new filter expressions",
-      "query": {
-        "query": "movie",
-        "filters": {
-          "year_gte": 2020
-        },
-        "filter_scoring": {
-          "year_gte": 1.0
-        },
-        "filter_expression": {
-          "operator": "OR",
-          "filters": [
-            {"field": "genre", "value": "Action", "score": 2.0},
-            {"field": "genre", "value": "Comedy", "score": 1.5}
-          ]
-        }
-      }
-    },
+
     {
       "name": "Multi-Search with Filter Expressions",
       "description": "Using filter expressions in multi-search queries",
@@ -144,7 +125,7 @@
           {
             "name": "premium_content",
             "query": "action",
-            "filter_expression": {
+            "filters": {
               "operator": "AND",
               "filters": [
                 {"field": "genre", "value": "Action", "score": 2.0},
@@ -155,7 +136,7 @@
           {
             "name": "platform_specific",
             "query": "comedy",
-            "filter_expression": {
+            "filters": {
               "operator": "OR",
               "filters": [
                 {"field": "filters", "operator": "_contains", "value": "plat_pc_dev_computer", "score": 1.0},
@@ -178,7 +159,7 @@
       },
       "query": {
         "query": "movie",
-        "filter_expression": {
+        "filters": {
           "operator": "OR",
           "filters": [
             {"field": "genre", "value": "Action", "score": 5.0},
@@ -205,6 +186,6 @@
     "In AND groups, all conditions must match, then all scores are summed",
     "Filter scores are added to the hit_info.filter_score field",
     "Use ~filters ranking criterion to sort by filter scores",
-    "Legacy filters and filter expressions can be combined in the same query"
+    "Filter expressions provide powerful AND/OR logic with explicit scoring"
   ]
 } 

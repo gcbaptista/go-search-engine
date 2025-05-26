@@ -360,8 +360,8 @@ func (s *Service) Search(query services.SearchQuery) (services.SearchResult, err
 
 		// Apply filter expression if any
 		var filterScore float64
-		if query.FilterExpression != nil {
-			matches, score := s.evaluateFilterExpression(doc, *query.FilterExpression)
+		if query.Filters != nil {
+			matches, score := s.evaluateFilters(doc, *query.Filters)
 			if !matches {
 				continue
 			}
@@ -726,8 +726,8 @@ func convertToInt64(val interface{}) (int64, bool) {
 	}
 }
 
-// evaluateFilterExpression evaluates a complex filter expression with AND/OR logic
-func (s *Service) evaluateFilterExpression(doc model.Document, expr services.FilterExpression) (bool, float64) {
+// evaluateFilters evaluates a complex filter expression with AND/OR logic
+func (s *Service) evaluateFilters(doc model.Document, expr services.Filters) (bool, float64) {
 	// Handle individual filter conditions
 	conditionResults := make([]bool, len(expr.Filters))
 	conditionScores := make([]float64, len(expr.Filters))
@@ -743,7 +743,7 @@ func (s *Service) evaluateFilterExpression(doc model.Document, expr services.Fil
 	groupResults := make([]bool, len(expr.Groups))
 	groupScores := make([]float64, len(expr.Groups))
 	for i, group := range expr.Groups {
-		matches, score := s.evaluateFilterExpression(doc, group)
+		matches, score := s.evaluateFilters(doc, group)
 		groupResults[i] = matches
 		if matches {
 			groupScores[i] = score

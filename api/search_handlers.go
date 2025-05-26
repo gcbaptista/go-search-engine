@@ -14,14 +14,14 @@ import (
 
 // SearchRequest defines the structure for search queries.
 type SearchRequest struct {
-	Query                    string                     `json:"query"`
-	FilterExpression         *services.FilterExpression `json:"filter_expression,omitempty"`
-	Page                     int                        `json:"page"`
-	PageSize                 int                        `json:"page_size"`
-	RestrictSearchableFields []string                   `json:"restrict_searchable_fields,omitempty"`
-	RetrivableFields         []string                   `json:"retrivable_fields,omitempty"`
-	MinWordSizeFor1Typo      *int                       `json:"min_word_size_for_1_typo,omitempty"`  // Optional: override index setting for minimum word size for 1 typo
-	MinWordSizeFor2Typos     *int                       `json:"min_word_size_for_2_typos,omitempty"` // Optional: override index setting for minimum word size for 2 typos
+	Query                    string            `json:"query"`
+	Filters                  *services.Filters `json:"filters,omitempty"`
+	Page                     int               `json:"page"`
+	PageSize                 int               `json:"page_size"`
+	RestrictSearchableFields []string          `json:"restrict_searchable_fields,omitempty"`
+	RetrivableFields         []string          `json:"retrivable_fields,omitempty"`
+	MinWordSizeFor1Typo      *int              `json:"min_word_size_for_1_typo,omitempty"`  // Optional: override index setting for minimum word size for 1 typo
+	MinWordSizeFor2Typos     *int              `json:"min_word_size_for_2_typos,omitempty"` // Optional: override index setting for minimum word size for 2 typos
 }
 
 // MultiSearchRequest represents the JSON request for multi-search
@@ -33,13 +33,13 @@ type MultiSearchRequest struct {
 
 // NamedSearchRequest represents a single named search query in the request
 type NamedSearchRequest struct {
-	Name                     string                     `json:"name" binding:"required"`
-	Query                    string                     `json:"query" binding:"required"`
-	RestrictSearchableFields []string                   `json:"restrict_searchable_fields,omitempty"`
-	RetrivableFields         []string                   `json:"retrivable_fields,omitempty"`
-	FilterExpression         *services.FilterExpression `json:"filter_expression,omitempty"`
-	MinWordSizeFor1Typo      *int                       `json:"min_word_size_for_1_typo,omitempty"`
-	MinWordSizeFor2Typos     *int                       `json:"min_word_size_for_2_typos,omitempty"`
+	Name                     string            `json:"name" binding:"required"`
+	Query                    string            `json:"query" binding:"required"`
+	RestrictSearchableFields []string          `json:"restrict_searchable_fields,omitempty"`
+	RetrivableFields         []string          `json:"retrivable_fields,omitempty"`
+	Filters                  *services.Filters `json:"filters,omitempty"`
+	MinWordSizeFor1Typo      *int              `json:"min_word_size_for_1_typo,omitempty"`
+	MinWordSizeFor2Typos     *int              `json:"min_word_size_for_2_typos,omitempty"`
 }
 
 // SearchHandler handles search requests to an index.
@@ -62,7 +62,7 @@ func (api *API) SearchHandler(c *gin.Context) {
 
 	searchQuery := services.SearchQuery{
 		QueryString:              req.Query,
-		FilterExpression:         req.FilterExpression,
+		Filters:                  req.Filters,
 		Page:                     req.Page,
 		PageSize:                 req.PageSize,
 		RestrictSearchableFields: req.RestrictSearchableFields,
@@ -150,7 +150,7 @@ func (api *API) MultiSearchHandler(c *gin.Context) {
 			Query:                    namedReq.Query,
 			RestrictSearchableFields: namedReq.RestrictSearchableFields,
 			RetrivableFields:         namedReq.RetrivableFields,
-			FilterExpression:         namedReq.FilterExpression,
+			Filters:                  namedReq.Filters,
 			MinWordSizeFor1Typo:      namedReq.MinWordSizeFor1Typo,
 			MinWordSizeFor2Typos:     namedReq.MinWordSizeFor2Typos,
 		}
@@ -196,7 +196,7 @@ func (api *API) MultiSearchHandler(c *gin.Context) {
 
 // determineSearchType determines the type of search based on the request
 func (api *API) determineSearchType(req SearchRequest) string {
-	if req.FilterExpression != nil {
+	if req.Filters != nil {
 		return "filtered"
 	}
 	if strings.Contains(req.Query, "*") || strings.Contains(req.Query, "?") {

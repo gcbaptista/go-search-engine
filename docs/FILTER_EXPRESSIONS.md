@@ -9,13 +9,13 @@ Filter expressions allow you to:
 - Combine multiple filter conditions with AND/OR logic
 - Nest filter groups for complex boolean expressions
 - Assign explicit scores to individual filter conditions
-- Mix legacy simple filters with advanced expressions
+- Create complex boolean expressions with AND/OR logic
 
 ## Basic Structure
 
 ```json
 {
-  "filter_expression": {
+  "filters": {
     "operator": "AND|OR",
     "filters": [
       {
@@ -44,7 +44,7 @@ Match documents with either Action OR Comedy genre:
 ```json
 {
   "query": "movie",
-  "filter_expression": {
+  "filters": {
     "operator": "OR",
     "filters": [
       { "field": "genre", "value": "Action", "score": 2.0 },
@@ -61,7 +61,7 @@ Match documents with Action genre AND premium status:
 ```json
 {
   "query": "movie",
-  "filter_expression": {
+  "filters": {
     "operator": "AND",
     "filters": [
       { "field": "genre", "value": "Action", "score": 2.0 },
@@ -80,7 +80,7 @@ Match documents with (Action OR Comedy) AND (premium OR high rating):
 ```json
 {
   "query": "movie",
-  "filter_expression": {
+  "filters": {
     "operator": "AND",
     "groups": [
       {
@@ -109,7 +109,7 @@ Based on the Algolia query pattern, here's a complex real-world example:
 ```json
 {
   "query": "thriller",
-  "filter_expression": {
+  "filters": {
     "operator": "AND",
     "groups": [
       {
@@ -177,13 +177,13 @@ Based on the Algolia query pattern, here's a complex real-world example:
 
 ## Filter Operator Paradigm
 
-The Go Search Engine uses **explicit operators** in filter expressions, moving away from the legacy suffix-based approach:
+The Go Search Engine uses **explicit operators** in filter expressions:
 
-### Modern Approach (Current)
+### Filter Expression Approach
 
 ```json
 {
-  "filter_expression": {
+  "filters": {
     "operator": "AND",
     "filters": [
       {
@@ -199,17 +199,6 @@ The Go Search Engine uses **explicit operators** in filter expressions, moving a
         "score": 1.5
       }
     ]
-  }
-}
-```
-
-### Legacy Approach (Removed)
-
-```json
-{
-  "filters": {
-    "genre_contains": "Action",
-    "rating_gte": 8.0
   }
 }
 ```
@@ -250,7 +239,7 @@ When you want to sort results primarily by filter match scores, use the special 
 
 ```json
 {
-  "filter_expression": {
+  "filters": {
     "operator": "OR",
     "filters": [
       {
@@ -321,33 +310,7 @@ Each filter condition can have an explicit `score` value. When the condition mat
 
 ### Total Filter Score
 
-The final filter score is the sum of:
-
-1. Legacy filter scoring (if using both systems)
-2. All matching filter expression scores
-
-## Combining with Legacy Filters
-
-You can use both legacy simple filters and new filter expressions in the same query:
-
-```json
-{
-  "query": "movie",
-  "filters": {
-    "year_gte": 2020
-  },
-  "filter_scoring": {
-    "year_gte": 1.0
-  },
-  "filter_expression": {
-    "operator": "OR",
-    "filters": [
-      { "field": "genre", "value": "Action", "score": 2.0 },
-      { "field": "genre", "value": "Comedy", "score": 1.5 }
-    ]
-  }
-}
-```
+The final filter score is the sum of all matching filter expression scores.
 
 ## Multi-Search Support
 
@@ -359,7 +322,7 @@ Filter expressions work seamlessly with multi-search:
     {
       "name": "premium_content",
       "query": "action",
-      "filter_expression": {
+      "filters": {
         "operator": "AND",
         "filters": [
           { "field": "genre", "value": "Action", "score": 2.0 },
@@ -370,7 +333,7 @@ Filter expressions work seamlessly with multi-search:
     {
       "name": "platform_specific",
       "query": "comedy",
-      "filter_expression": {
+      "filters": {
         "operator": "OR",
         "filters": [
           {
@@ -398,33 +361,6 @@ Filter expressions work seamlessly with multi-search:
 2. **Condition Count**: Large numbers of OR conditions may impact performance
 3. **Field Indexing**: Ensure filtered fields are marked as filterable in index settings
 4. **Operator Choice**: `_contains` on large arrays is slower than exact matches
-
-## Migration from Simple Filters
-
-Existing simple filters continue to work unchanged. You can gradually migrate to filter expressions:
-
-### Before (Simple)
-
-```json
-{
-  "filters": { "genre": "Action", "is_premium": true },
-  "filter_scoring": { "genre": 1.0, "is_premium": 2.0 }
-}
-```
-
-### After (Expression)
-
-```json
-{
-  "filter_expression": {
-    "operator": "AND",
-    "filters": [
-      { "field": "genre", "value": "Action", "score": 1.0 },
-      { "field": "is_premium", "value": true, "score": 2.0 }
-    ]
-  }
-}
-```
 
 ## Error Handling
 

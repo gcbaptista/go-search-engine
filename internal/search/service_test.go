@@ -1042,7 +1042,7 @@ func TestMultiSearch(t *testing.T) {
 				{
 					Name:  "programming_2020",
 					Query: "programming",
-					FilterExpression: &services.FilterExpression{
+					Filters: &services.Filters{
 						Operator: "AND",
 						Filters: []services.FilterCondition{
 							{Field: "category", Value: "programming"},
@@ -1053,7 +1053,7 @@ func TestMultiSearch(t *testing.T) {
 				{
 					Name:  "web_category",
 					Query: "web",
-					FilterExpression: &services.FilterExpression{
+					Filters: &services.Filters{
 						Operator: "AND",
 						Filters: []services.FilterCondition{
 							{Field: "category", Value: "web"},
@@ -1284,7 +1284,7 @@ func TestMultiSearchParallel(t *testing.T) {
 			{
 				Name:  "filtered_search",
 				Query: "matrix",
-				FilterExpression: &services.FilterExpression{
+				Filters: &services.Filters{
 					Operator: "AND",
 					Filters: []services.FilterCondition{
 						{Field: "category", Value: "movie"},
@@ -2123,8 +2123,8 @@ func TestScoringWithKnownTypos(t *testing.T) {
 	}
 }
 
-// TestFilterExpressions tests the new complex filter expressions with AND/OR logic
-func TestFilterExpressions(t *testing.T) {
+// TestFilters tests the new complex filter expressions with AND/OR logic
+func TestFilters(t *testing.T) {
 	// Create test documents with various filter values
 	docs := []model.Document{
 		{
@@ -2179,7 +2179,7 @@ func TestFilterExpressions(t *testing.T) {
 
 	t.Run("simple OR filter expression", func(t *testing.T) {
 		// Test OR logic: match documents with either Action OR Comedy genre
-		filterExpr := &services.FilterExpression{
+		filterExpr := &services.Filters{
 			Operator: "OR",
 			Filters: []services.FilterCondition{
 				{Field: "genre", Value: "Action", Score: 2.0},
@@ -2188,9 +2188,9 @@ func TestFilterExpressions(t *testing.T) {
 		}
 
 		query := services.SearchQuery{
-			QueryString:      "movie",
-			FilterExpression: filterExpr,
-			PageSize:         10,
+			QueryString: "movie",
+			Filters:     filterExpr,
+			PageSize:    10,
 		}
 
 		result, err := service.Search(query)
@@ -2212,7 +2212,7 @@ func TestFilterExpressions(t *testing.T) {
 
 	t.Run("simple AND filter expression", func(t *testing.T) {
 		// Test AND logic: match documents with Action genre AND premium status
-		filterExpr := &services.FilterExpression{
+		filterExpr := &services.Filters{
 			Operator: "AND",
 			Filters: []services.FilterCondition{
 				{Field: "genre", Value: "Action", Score: 2.0},
@@ -2221,9 +2221,9 @@ func TestFilterExpressions(t *testing.T) {
 		}
 
 		query := services.SearchQuery{
-			QueryString:      "movie",
-			FilterExpression: filterExpr,
-			PageSize:         10,
+			QueryString: "movie",
+			Filters:     filterExpr,
+			PageSize:    10,
 		}
 
 		result, err := service.Search(query)
@@ -2239,9 +2239,9 @@ func TestFilterExpressions(t *testing.T) {
 
 	t.Run("complex nested filter expression", func(t *testing.T) {
 		// Test complex expression: (Action OR Comedy) AND (premium OR high rating)
-		filterExpr := &services.FilterExpression{
+		filterExpr := &services.Filters{
 			Operator: "AND",
-			Groups: []services.FilterExpression{
+			Groups: []services.Filters{
 				{
 					Operator: "OR",
 					Filters: []services.FilterCondition{
@@ -2260,9 +2260,9 @@ func TestFilterExpressions(t *testing.T) {
 		}
 
 		query := services.SearchQuery{
-			QueryString:      "movie",
-			FilterExpression: filterExpr,
-			PageSize:         10,
+			QueryString: "movie",
+			Filters:     filterExpr,
+			PageSize:    10,
 		}
 
 		result, err := service.Search(query)
@@ -2283,7 +2283,7 @@ func TestFilterExpressions(t *testing.T) {
 
 	t.Run("array field contains with scoring", func(t *testing.T) {
 		// Test array contains with OR logic and scoring
-		filterExpr := &services.FilterExpression{
+		filterExpr := &services.Filters{
 			Operator: "OR",
 			Filters: []services.FilterCondition{
 				{Field: "filters", Operator: "_contains", Value: "plat_pc_dev_computer", Score: 2.0},
@@ -2292,9 +2292,9 @@ func TestFilterExpressions(t *testing.T) {
 		}
 
 		query := services.SearchQuery{
-			QueryString:      "movie",
-			FilterExpression: filterExpr,
-			PageSize:         10,
+			QueryString: "movie",
+			Filters:     filterExpr,
+			PageSize:    10,
 		}
 
 		result, err := service.Search(query)
@@ -2328,9 +2328,9 @@ func TestFilterExpressions(t *testing.T) {
 
 	t.Run("algolia-inspired complex expression", func(t *testing.T) {
 		// Inspired by the Algolia query: multiple OR conditions within an AND structure
-		filterExpr := &services.FilterExpression{
+		filterExpr := &services.Filters{
 			Operator: "AND",
-			Groups: []services.FilterExpression{
+			Groups: []services.Filters{
 				{
 					Operator: "OR",
 					Filters: []services.FilterCondition{
@@ -2356,9 +2356,9 @@ func TestFilterExpressions(t *testing.T) {
 		}
 
 		query := services.SearchQuery{
-			QueryString:      "movie",
-			FilterExpression: filterExpr,
-			PageSize:         10,
+			QueryString: "movie",
+			Filters:     filterExpr,
+			PageSize:    10,
 		}
 
 		result, err := service.Search(query)

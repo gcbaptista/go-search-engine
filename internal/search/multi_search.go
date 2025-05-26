@@ -38,7 +38,7 @@ func (s *Service) MultiSearch(ctx context.Context, multiQuery services.MultiSear
 				QueryString:              nq.Query,
 				RestrictSearchableFields: nq.RestrictSearchableFields,
 				RetrivableFields:         nq.RetrivableFields,
-				FilterExpression:         nq.FilterExpression,
+				Filters:                  nq.Filters,
 				Page:                     multiQuery.Page,
 				PageSize:                 multiQuery.PageSize,
 				MinWordSizeFor1Typo:      nq.MinWordSizeFor1Typo,
