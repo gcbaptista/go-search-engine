@@ -338,41 +338,6 @@ func convertToFloat64(val interface{}) (float64, bool) {
 	return 0, false
 }
 
-// convertToInt64 converts various numeric types to int64
-func convertToInt64(val interface{}) (int64, bool) {
-	switch v := val.(type) {
-	case int64:
-		return v, true
-	case int:
-		return int64(v), true
-	case int8:
-		return int64(v), true
-	case int16:
-		return int64(v), true
-	case int32:
-		return int64(v), true
-	case uint:
-		return int64(v), true
-	case uint8:
-		return int64(v), true
-	case uint16:
-		return int64(v), true
-	case uint32:
-		return int64(v), true
-	case uint64:
-		return int64(v), true
-	case float64:
-		return int64(v), true
-	case float32:
-		return int64(v), true
-	case string:
-		if i, err := strconv.ParseInt(v, 10, 64); err == nil {
-			return i, true
-		}
-	}
-	return 0, false
-}
-
 // convertToTime converts various time representations to time.Time
 func convertToTime(val interface{}) (time.Time, bool) {
 	switch v := val.(type) {
