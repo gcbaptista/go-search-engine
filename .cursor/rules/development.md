@@ -1,0 +1,18 @@
+# Development Rules
+
+## Code Quality & Standards
+
+- Always be coherent with what is defined in docs/CLAUDE.md. If any assumption in this file changes, make sure you reflect on it.
+- I don't want any comments related to refactors, only leave a comment if they clarify the code
+- After finishing any major task (feature implementation, significant refactoring, API changes), MUST run the complete linting suite as defined in docs/CLAUDE.md Post-Major Task Requirements section
+- Follow all linting rules and code quality standards defined in docs/CLAUDE.md
+- Use the exact linting commands specified in the documentation for consistency
+- Ensure all linting issues are resolved before considering a major task complete
+
+## API Changes
+
+- Any change in the API, make sure you also reflect it in the api-spec.yaml
+
+## Testing
+
+- Any tests you perform against the application, make sure you leave it as you found it (indexes, settings, documents, etc...)

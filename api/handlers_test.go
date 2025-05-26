@@ -686,6 +686,10 @@ func TestRenameIndexHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Add a small delay to ensure previous async operations complete
+			// This prevents race conditions between test cases
+			time.Sleep(10 * time.Millisecond)
+
 			body, _ := json.Marshal(tt.requestBody)
 			req, _ := http.NewRequest("POST", fmt.Sprintf("/indexes/%s/rename", tt.indexName), bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")

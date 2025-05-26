@@ -1,13 +1,27 @@
 ---
 description: 
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
-- Always be coherent with what is defined in docs/CLAUDE.md. If any assumption in this file changes, make sure you reflect on it.
-- Any change in the API, make sure you also reflect it in the api-spec.yaml
-- Any tests you perform against the application, make sure you leave it as you found it (indexes, settings, documents, etc...)
-- I don't want any comments related to refactors, only leave a comment if they clarify the code
-- After finishing any major task (feature implementation, significant refactoring, API changes), MUST run the complete linting suite as defined in docs/CLAUDE.md Post-Major Task Requirements section
-- Follow all linting rules and code quality standards defined in docs/CLAUDE.md
-- Use the exact linting commands specified in the documentation for consistency
-- Ensure all linting issues are resolved before considering a major task complete
+# Cursor Rules - Main Index
+
+This file serves as the main index for all cursor rules. Rules are now organized by domain:
+
+## 📁 Rule Files by Domain
+
+- **Development**: `.cursor/rules/development.md` - Code quality, standards, testing
+- **Git & Workflow**: `.cursor/rules/git-workflow.md` - PR creation, branch management, code review
+- **Cursor Agent**: `.cursor/rules/cursor-agent.md` - Tool workarounds, terminal issues
+
+## 🚨 Critical Rules (Always Apply)
+
+- Always be coherent with what is defined in docs/CLAUDE.md
+- Run complete linting suite after major tasks (see docs/CLAUDE.md Post-Major Task Requirements)
+- Use @.github/pull_request_template.md for all PRs
+- Try conventional commands first, use workarounds only if errors occur
+
+---
+
+*For detailed rules, refer to the specific domain files above.*
+
+
