@@ -19,7 +19,7 @@ func init() {
 	// However, json.Unmarshal into map[string]interface{} often gives []interface{} for arrays.
 	gob.Register([]string{})
 	gob.Register(float64(0))
-	gob.Register(bool(false))
+	gob.Register(false)
 }
 
 type DocumentStore struct {

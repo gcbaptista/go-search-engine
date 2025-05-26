@@ -701,31 +701,6 @@ func (s *Service) deduplicateResults(hits []services.HitResult, distinctField st
 	return deduplicated
 }
 
-// convertToInt64 tries to convert an interface{} to int64.
-// It handles int, int8, int16, int32, int64, and numeric strings.
-func convertToInt64(val interface{}) (int64, bool) {
-	switch v := val.(type) {
-	case int:
-		return int64(v), true
-	case int8:
-		return int64(v), true
-	case int16:
-		return int64(v), true
-	case int32:
-		return int64(v), true
-	case int64:
-		return v, true
-	case string:
-		// Try to parse string as int64 for cases where frontend sends integers as strings
-		if parsed, err := strconv.ParseInt(v, 10, 64); err == nil {
-			return parsed, true
-		}
-		return 0, false
-	default:
-		return 0, false
-	}
-}
-
 // evaluateFilters evaluates a complex filter expression with AND/OR logic
 func (s *Service) evaluateFilters(doc model.Document, expr services.Filters) (bool, float64) {
 	// Handle individual filter conditions

@@ -94,7 +94,7 @@ func (m *JobMetrics) RecordJobCompleted(jobType model.JobType, executionTime tim
 }
 
 // RecordJobFailed records job failure
-func (m *JobMetrics) RecordJobFailed(jobType model.JobType) {
+func (m *JobMetrics) RecordJobFailed(_ model.JobType) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

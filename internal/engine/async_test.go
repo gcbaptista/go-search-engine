@@ -11,14 +11,18 @@ import (
 )
 
 func TestEngine_UpdateIndexSettingsWithAsyncReindex(t *testing.T) {
-	// Create temporary directory for test
+	// Create a temporary directory for test
 	testDir := createTestDir(t)
-	defer os.RemoveAll(testDir)
+	defer func() {
+		if err := os.RemoveAll(testDir); err != nil {
+			t.Logf("Failed to remove test directory: %v", err)
+		}
+	}()
 
 	engine := NewEngine(testDir)
 	defer engine.jobManager.Stop()
 
-	// Create test index
+	// Create a test index
 	settings := config.IndexSettings{
 		Name:                 "test-async-index",
 		SearchableFields:     []string{"title", "description"},
@@ -155,7 +159,11 @@ jobCompleted:
 
 func TestEngine_AsyncReindexingWithNonExistentIndex(t *testing.T) {
 	testDir := createTestDir(t)
-	defer os.RemoveAll(testDir)
+	defer func() {
+		if err := os.RemoveAll(testDir); err != nil {
+			t.Logf("Failed to remove test directory: %v", err)
+		}
+	}()
 
 	engine := NewEngine(testDir)
 	defer engine.jobManager.Stop()
@@ -170,14 +178,18 @@ func TestEngine_AsyncReindexingWithNonExistentIndex(t *testing.T) {
 		t.Error("Expected error for non-existent index")
 	}
 
-	if !contains(err.Error(), "not found") {
+	if err != nil && !contains(err.Error(), "not found") {
 		t.Errorf("Expected 'not found' error, got: %v", err)
 	}
 }
 
 func TestEngine_ListJobsForIndex(t *testing.T) {
 	testDir := createTestDir(t)
-	defer os.RemoveAll(testDir)
+	defer func() {
+		if err := os.RemoveAll(testDir); err != nil {
+			t.Logf("Failed to remove test directory: %v", err)
+		}
+	}()
 
 	engine := NewEngine(testDir)
 	defer engine.jobManager.Stop()

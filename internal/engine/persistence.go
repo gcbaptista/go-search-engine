@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -60,12 +61,12 @@ func (e *Engine) loadIndexesFromDisk() {
 
 		docStore := &store.DocumentStore{}
 		dsPath := filepath.Join(indexPath, documentStoreFile)
-		if err := persistence.LoadGob(dsPath, docStore); err != nil && err != os.ErrNotExist {
+		if err := persistence.LoadGob(dsPath, docStore); err != nil && !errors.Is(err, os.ErrNotExist) {
 			log.Printf("Warning: Failed to load document store for index %s from %s: %v. Proceeding with empty store.", indexName, dsPath, err)
 			// Initialize to empty if load failed but not due to file not existing (e.g. corrupted file)
 			docStore.Docs = make(map[uint32]model.Document)
 			docStore.ExternalIDtoInternalID = make(map[string]uint32)
-		} else if err == os.ErrNotExist {
+		} else if errors.Is(err, os.ErrNotExist) {
 			log.Printf("Info: Document store file %s not found for index %s. Initializing empty store.", dsPath, indexName)
 			docStore.Docs = make(map[uint32]model.Document)
 			docStore.ExternalIDtoInternalID = make(map[string]uint32)
@@ -73,10 +74,10 @@ func (e *Engine) loadIndexesFromDisk() {
 
 		invIndex := &index.InvertedIndex{Settings: &settings} // Settings must be linked here
 		iiPath := filepath.Join(indexPath, invertedIndexFile)
-		if err := persistence.LoadGob(iiPath, invIndex); err != nil && err != os.ErrNotExist {
+		if err := persistence.LoadGob(iiPath, invIndex); err != nil && !errors.Is(err, os.ErrNotExist) {
 			log.Printf("Warning: Failed to load inverted index for index %s from %s: %v. Proceeding with empty index.", indexName, iiPath, err)
 			invIndex.Index = make(map[string]index.PostingList) // Init to empty if corrupted
-		} else if err == os.ErrNotExist {
+		} else if errors.Is(err, os.ErrNotExist) {
 			log.Printf("Info: Inverted index file %s not found for index %s. Initializing empty index.", iiPath, indexName)
 			invIndex.Index = make(map[string]index.PostingList)
 		}

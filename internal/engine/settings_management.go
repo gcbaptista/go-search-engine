@@ -137,7 +137,7 @@ func (e *Engine) requiresFullReindexing(oldSettings, newSettings config.IndexSet
 }
 
 // executeSearchTimeSettingsUpdateJob executes a search-time settings update job.
-func (e *Engine) executeSearchTimeSettingsUpdateJob(ctx context.Context, name string, newSettings config.IndexSettings, jobID string) error {
+func (e *Engine) executeSearchTimeSettingsUpdateJob(_ context.Context, name string, newSettings config.IndexSettings, _ string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -161,7 +161,7 @@ func (e *Engine) executeSearchTimeSettingsUpdateJob(ctx context.Context, name st
 }
 
 // executeReindexJob executes a full reindex job.
-func (e *Engine) executeReindexJob(ctx context.Context, name string, newSettings config.IndexSettings, jobID string) error {
+func (e *Engine) executeReindexJob(_ context.Context, name string, newSettings config.IndexSettings, _ string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 

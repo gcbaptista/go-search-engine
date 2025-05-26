@@ -8,12 +8,11 @@ import (
 type JobStatus string
 
 const (
-	JobStatusPending    JobStatus = "pending"
-	JobStatusRunning    JobStatus = "running"
-	JobStatusCompleted  JobStatus = "completed"
-	JobStatusFailed     JobStatus = "failed"
-	JobStatusCancelling JobStatus = "cancelling"
-	JobStatusCancelled  JobStatus = "cancelled"
+	JobStatusPending   JobStatus = "pending"
+	JobStatusRunning   JobStatus = "running"
+	JobStatusCompleted JobStatus = "completed"
+	JobStatusFailed    JobStatus = "failed"
+	JobStatusCancelled JobStatus = "cancelled"
 )
 
 // JobType represents the type of job being executed

@@ -40,7 +40,7 @@ func (e *Engine) CreateIndexAsync(settings config.IndexSettings) (string, error)
 }
 
 // executeCreateIndexJob executes the create index job.
-func (e *Engine) executeCreateIndexJob(ctx context.Context, settings config.IndexSettings, jobID string) error {
+func (e *Engine) executeCreateIndexJob(_ context.Context, settings config.IndexSettings, _ string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -96,7 +96,7 @@ func (e *Engine) DeleteIndexAsync(name string) (string, error) {
 }
 
 // executeDeleteIndexJob executes the delete index job.
-func (e *Engine) executeDeleteIndexJob(ctx context.Context, name string, jobID string) error {
+func (e *Engine) executeDeleteIndexJob(_ context.Context, name string, _ string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -142,7 +142,7 @@ func (e *Engine) AddDocumentsAsync(indexName string, docs []model.Document) (str
 }
 
 // executeAddDocumentsJob executes the add documents job.
-func (e *Engine) executeAddDocumentsJob(ctx context.Context, indexName string, docs []model.Document, jobID string) error {
+func (e *Engine) executeAddDocumentsJob(_ context.Context, indexName string, docs []model.Document, jobID string) error {
 	e.mu.RLock()
 	instance, exists := e.indexes[indexName]
 	e.mu.RUnlock()
@@ -209,7 +209,7 @@ func (e *Engine) RenameIndexAsync(oldName, newName string) (string, error) {
 }
 
 // executeRenameIndexJob executes the rename index job.
-func (e *Engine) executeRenameIndexJob(ctx context.Context, oldName, newName string, jobID string) error {
+func (e *Engine) executeRenameIndexJob(_ context.Context, oldName, newName string, _ string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -273,7 +273,7 @@ func (e *Engine) DeleteAllDocumentsAsync(indexName string) (string, error) {
 }
 
 // executeDeleteAllDocumentsJob executes the delete all documents job.
-func (e *Engine) executeDeleteAllDocumentsJob(ctx context.Context, indexName string, jobID string) error {
+func (e *Engine) executeDeleteAllDocumentsJob(_ context.Context, indexName string, _ string) error {
 	e.mu.RLock()
 	instance, exists := e.indexes[indexName]
 	e.mu.RUnlock()
@@ -315,7 +315,7 @@ func (e *Engine) DeleteDocumentAsync(indexName, documentID string) (string, erro
 	})
 
 	err := e.jobManager.ExecuteJob(jobID, func(ctx context.Context, job *model.Job) error {
-		return e.executeDeleteDocumentJob(ctx, indexName, documentID, jobID)
+		return e.executeDeleteDocumentJob(ctx, indexName, documentID)
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to start delete document job: %w", err)
@@ -325,7 +325,7 @@ func (e *Engine) DeleteDocumentAsync(indexName, documentID string) (string, erro
 }
 
 // executeDeleteDocumentJob executes the delete document job.
-func (e *Engine) executeDeleteDocumentJob(ctx context.Context, indexName, documentID, jobID string) error {
+func (e *Engine) executeDeleteDocumentJob(_ context.Context, indexName, documentID string) error {
 	e.mu.RLock()
 	instance, exists := e.indexes[indexName]
 	e.mu.RUnlock()
