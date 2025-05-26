@@ -1,18 +1,19 @@
 # 📚 Go Search Engine Documentation
 
-Welcome to the comprehensive documentation for the Go Search Engine project. This directory contains all technical guides, optimization details, and development resources.
+Welcome to the comprehensive documentation for the Go Search Engine project. This directory contains all technical
+guides, optimization details, and development resources.
 
 ## 📖 Table of Contents
 
 ### 🚀 **Core Documentation**
 
-| Document                                                        | Description                                                                          | Status      |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------- |
+| Document                                                        | Description                                                                          | Status     |
+|-----------------------------------------------------------------|--------------------------------------------------------------------------------------|------------|
 | [**Async API Operations**](./ASYNC_API.md)                      | Complete guide to asynchronous operations and job management                         | ✅ Complete |
 | [**Search Features**](./SEARCH_FEATURES.md)                     | Advanced search capabilities including field restriction and typo tolerance          | ✅ Complete |
 | [**Search-Time Settings**](./SEARCH_TIME_SETTINGS.md)           | Understanding instant vs reindexing settings for production optimization             | ✅ Complete |
 | [**Typo Optimization Summary**](./TYPO_OPTIMIZATION_SUMMARY.md) | Complete performance optimization guide for typo tolerance with 95,000x improvements | ✅ Complete |
-| [**Progress Tracker**](./PROGRESS.md)                           | Development milestones and implementation status                                     | 🔄 Active   |
+| [**Progress Tracker**](./PROGRESS.md)                           | Development milestones and implementation status                                     | 🔄 Active  |
 | [**Field Naming Guide**](./FIELD_NAMING_GUIDE.md)               | Standardized field naming conventions across the codebase                            | ✅ Complete |
 
 ---
@@ -39,17 +40,17 @@ Welcome to the comprehensive documentation for the Go Search Engine project. Thi
 ### Performance Optimizations
 
 - **[Typo Tolerance Performance](./TYPO_OPTIMIZATION_SUMMARY.md)**
-  - 95,000x performance improvements
-  - Dual-criteria stopping (500 tokens OR 50ms)
-  - Intelligent caching system
-  - Memory optimization techniques
+    - 95,000x performance improvements
+    - Dual-criteria stopping (500 tokens OR 50ms)
+    - Intelligent caching system
+    - Memory optimization techniques
 
 ### Architecture & Design
 
 - **[Field Naming Conventions](./FIELD_NAMING_GUIDE.md)**
-  - Consistent naming patterns
-  - API field standards
-  - Database schema guidelines
+    - Consistent naming patterns
+    - API field standards
+    - Database schema guidelines
 
 ---
 
@@ -81,7 +82,7 @@ See [**Progress Tracker**](./PROGRESS.md) for detailed milestones.
 ### API & Integration
 
 | Resource             | Location                               | Purpose                   |
-| -------------------- | -------------------------------------- | ------------------------- |
+|----------------------|----------------------------------------|---------------------------|
 | **API Spec**         | [`../api-spec.yaml`](../api-spec.yaml) | OpenAPI 3.0 specification |
 | **TypeScript Types** | [`../types.ts`](../types.ts)           | Frontend type definitions |
 | **Go Modules**       | [`../go.mod`](../go.mod)               | Dependency management     |
@@ -152,4 +153,5 @@ When contributing to this project:
 
 ---
 
-_📌 **Note**: This documentation is actively maintained. For the most current information, always check the latest version in the repository._
+_📌 **Note**: This documentation is actively maintained. For the most current information, always check the latest
+version in the repository._

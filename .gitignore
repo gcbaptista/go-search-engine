@@ -50,7 +50,6 @@ logs/
 .vscode/
 *.swp
 *.swo
-*~
 .vim/
 *.iml
 *.ipr

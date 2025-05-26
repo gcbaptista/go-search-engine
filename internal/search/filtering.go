@@ -7,7 +7,7 @@ import (
 )
 
 // filterDocumentFields returns a new document containing only the specified fields.
-// If retrievableFields is empty, returns the full document.
+// If retrievableFields are empty, returns the full document.
 // The documentID field is always included regardless of the retrievableFields parameter.
 func (s *Service) filterDocumentFields(doc model.Document, retrievableFields []string) model.Document {
 	if len(retrievableFields) == 0 {

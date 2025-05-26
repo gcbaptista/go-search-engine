@@ -2,7 +2,8 @@
 
 ## Overview
 
-The Go Search Engine now includes a comprehensive analytics system that tracks search events and provides detailed dashboard data for monitoring search engine performance and usage patterns.
+The Go Search Engine now includes a comprehensive analytics system that tracks search events and provides detailed
+dashboard data for monitoring search engine performance and usage patterns.
 
 ## Features
 

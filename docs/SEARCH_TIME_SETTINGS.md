@@ -9,7 +9,8 @@ The Go Search Engine has two distinct types of settings that behave very differe
 
 ## 🔍 Search-Time Settings
 
-These settings only affect **how searches are performed**, not how documents are indexed. They can be updated **instantly** without rebuilding the index.
+These settings only affect **how searches are performed**, not how documents are indexed. They can be updated *
+*instantly** without rebuilding the index.
 
 ### Typo Tolerance Settings
 
@@ -60,9 +61,9 @@ These settings affect **what gets indexed and how**, requiring a complete rebuil
 ## ⚡ Performance Impact
 
 | Setting Type    | Update Time   | API Response | Reindexing |
-| --------------- | ------------- | ------------ | ---------- |
-| **Search-Time** | < 1 second    | 202 Accepted | ❌ No      |
-| **Core**        | Minutes/Hours | 202 Accepted | ✅ Yes     |
+|-----------------|---------------|--------------|------------|
+| **Search-Time** | < 1 second    | 202 Accepted | ❌ No       |
+| **Core**        | Minutes/Hours | 202 Accepted | ✅ Yes      |
 
 ## 🔧 How It Works
 
@@ -156,11 +157,12 @@ if requiresFullReindex {
 ## 🎯 Summary
 
 | Aspect           | Search-Time Settings       | Core Settings              |
-| ---------------- | -------------------------- | -------------------------- |
+|------------------|----------------------------|----------------------------|
 | **Purpose**      | Control search behavior    | Define index structure     |
 | **Update Speed** | Instant (< 1 second)       | Slow (minutes to hours)    |
 | **Reindexing**   | Not required               | Required                   |
 | **When to Use**  | Tuning search quality      | Changing what's searchable |
 | **Risk Level**   | Low (reversible instantly) | High (expensive to change) |
 
-**Key Insight**: Search-time settings let you **tune search behavior** without the cost of reindexing, making the search engine much more **production-friendly** and **responsive to user needs**! 🎉
+**Key Insight**: Search-time settings let you **tune search behavior** without the cost of reindexing, making the search
+engine much more **production-friendly** and **responsive to user needs**! 🎉

@@ -6,7 +6,9 @@
 
 ## Project Overview
 
-**Go Search Engine** is a high-performance, full-text search engine built in Go with advanced features including typo tolerance, filtering, ranking, and prefix search capabilities. The project implements a modular, RESTful architecture designed for scalability and maintainability.
+**Go Search Engine** is a high-performance, full-text search engine built in Go with advanced features including typo
+tolerance, filtering, ranking, and prefix search capabilities. The project implements a modular, RESTful architecture
+designed for scalability and maintainability.
 
 ### Key Features
 
@@ -154,7 +156,8 @@ go build ./cmd/search_engine
 
 ### Post-Major Task Requirements
 
-**MANDATORY**: After completing any major task (feature implementation, significant refactoring, API changes), run the complete linting suite:
+**MANDATORY**: After completing any major task (feature implementation, significant refactoring, API changes), run the
+complete linting suite:
 
 ```bash
 # Complete linting workflow
@@ -251,10 +254,10 @@ The project uses golangci-lint with the following enabled linters (configured in
 ### Test Naming Convention
 
 ```go
-func TestFunctionName(t *testing.T)              // Basic test
-func TestFunctionName_EdgeCase(t *testing.T)     // Edge case test
+func TestFunctionName(t *testing.T) // Basic test
+func TestFunctionName_EdgeCase(t *testing.T) // Edge case test
 func TestFunctionName_ErrorCondition(t *testing.T) // Error condition test
-func BenchmarkFunctionName(b *testing.B)         // Benchmark test
+func BenchmarkFunctionName(b *testing.B) // Benchmark test
 ```
 
 ### Test Structure
@@ -263,16 +266,16 @@ Follow the **Arrange-Act-Assert** pattern:
 
 ```go
 func TestSearchDocuments(t *testing.T) {
-    // Arrange
-    engine := NewTestEngine()
-    documents := []Document{...}
+// Arrange
+engine := NewTestEngine()
+documents := []Document{...}
 
-    // Act
-    results, err := engine.Search("query")
+// Act
+results, err := engine.Search("query")
 
-    // Assert
-    assert.NoError(t, err)
-    assert.Len(t, results, expectedCount)
+// Assert
+assert.NoError(t, err)
+assert.Len(t, results, expectedCount)
 }
 ```
 
@@ -407,9 +410,9 @@ git commit -m "feat: add fuzzy search functionality
 1. **Follow coding conventions** outlined in this document
 2. **Write comprehensive tests** for new functionality
 3. **Update documentation** including:
-   - Code comments for public functions
-   - README.md if adding new features
-   - API documentation in `api-spec.yaml`
+    - Code comments for public functions
+    - README.md if adding new features
+    - API documentation in `api-spec.yaml`
 4. **Run complete linting suite** after major tasks (as per Post-Major Task Requirements)
 5. **Verify build and tests** before considering work complete
 
@@ -424,4 +427,5 @@ git commit -m "feat: add fuzzy search functionality
 - **[Progress Tracker](./PROGRESS.md)** - Development milestones
 - **[API Specification](../api-spec.yaml)** - Complete OpenAPI documentation
 
-For questions or support, please open an issue on the [GitHub repository](https://github.com/gcbaptista/go-search-engine).
+For questions or support, please open an issue on
+the [GitHub repository](https://github.com/gcbaptista/go-search-engine).

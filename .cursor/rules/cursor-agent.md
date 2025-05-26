@@ -6,12 +6,13 @@
 
 - **Known Issue**: Cursor Agent fails to display output from GitHub CLI (gh) commands properly
 - **Workflow**: ALWAYS try conventional commands first (e.g., `gh pr view 3`, `gh pr list`)
-- **Only if errors occur** (symptoms: `head: |: No such file or directory` or `head: cat: No such file or directory`), then use workarounds:
-  - Use `| cat` suffix for gh commands: `gh pr view 3 | cat`
-  - Use JSON output: `gh pr list --json number,title,state`
-  - Use direct git commands instead: `git remote -v`, `git branch -a`
-  - Set environment variables: `export PAGER=cat GH_PAGER=cat`
-  - For critical operations, verify in separate terminal outside Cursor Agent
+- **Only if errors occur** (symptoms: `head: |: No such file or directory` or `head: cat: No such file or directory`),
+  then use workarounds:
+    - Use `| cat` suffix for gh commands: `gh pr view 3 | cat`
+    - Use JSON output: `gh pr list --json number,title,state`
+    - Use direct git commands instead: `git remote -v`, `git branch -a`
+    - Set environment variables: `export PAGER=cat GH_PAGER=cat`
+    - For critical operations, verify in separate terminal outside Cursor Agent
 - **Reference**: https://github.com/getcursor/cursor/issues/3139
 
 ## Tool Usage Best Practices

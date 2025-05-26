@@ -1,13 +1,17 @@
 # Filter Scoring
 
-Filter scoring allows you to assign scores to documents based on which filters they match. This enables you to boost the relevance of documents that match specific criteria, giving you fine-grained control over search result ranking.
+Filter scoring allows you to assign scores to documents based on which filters they match. This enables you to boost the
+relevance of documents that match specific criteria, giving you fine-grained control over search result ranking.
 
-> **New**: Advanced filter expressions with AND/OR logic are now available! See [Filter Expressions](FILTER_EXPRESSIONS.md) for complex boolean filtering inspired by Algolia.
+> **New**: Advanced filter expressions with AND/OR logic are now available!
+> See [Filter Expressions](FILTER_EXPRESSIONS.md) for complex boolean filtering inspired by Algolia.
 
 ## How It Works
 
-1. **FilterScoring Configuration**: In your search query, specify a `filter_scoring` map that assigns scores to filter keys
-2. **Score Calculation**: When a document matches a filter, the corresponding score is added to the document's filter score
+1. **FilterScoring Configuration**: In your search query, specify a `filter_scoring` map that assigns scores to filter
+   keys
+2. **Score Calculation**: When a document matches a filter, the corresponding score is added to the document's filter
+   score
 3. **Ranking Integration**: Use the special `~filters` ranking criterion to sort results by filter score
 
 ## Basic Example
@@ -170,7 +174,8 @@ Boost local content:
 
 ## Important Notes
 
-1. **Filter Requirement**: Only filters that are actually applied (in the `filters` object) can contribute to the filter score
+1. **Filter Requirement**: Only filters that are actually applied (in the `filters` object) can contribute to the filter
+   score
 2. **All-or-Nothing**: If a document doesn't match ALL specified filters, it gets a filter score of 0.0
 3. **Additive Scoring**: Filter scores are summed for all matching filters
 4. **Optional Scoring**: You can apply filters without scoring by omitting them from `filter_scoring`
@@ -198,4 +203,5 @@ Filter scoring works with multi-search queries:
 }
 ```
 
-This feature gives you powerful control over search result relevance, allowing you to implement sophisticated ranking strategies based on your business logic and user preferences.
+This feature gives you powerful control over search result relevance, allowing you to implement sophisticated ranking
+strategies based on your business logic and user preferences.

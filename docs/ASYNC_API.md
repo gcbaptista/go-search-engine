@@ -6,7 +6,9 @@
 
 ## Overview
 
-The Go Search Engine implements **full asynchronous processing for all writing operations** to eliminate timeout issues and provide real-time progress tracking. All operations that modify data return immediately with a job ID, allowing clients to track progress without blocking.
+The Go Search Engine implements **full asynchronous processing for all writing operations** to eliminate timeout issues
+and provide real-time progress tracking. All operations that modify data return immediately with a job ID, allowing
+clients to track progress without blocking.
 
 ## 🚀 Key Features
 
@@ -33,7 +35,7 @@ The Go Search Engine implements **full asynchronous processing for all writing o
 ## 📋 Supported Async Operations
 
 | Operation            | Endpoint                                | Job Type          | Description                                |
-| -------------------- | --------------------------------------- | ----------------- | ------------------------------------------ |
+|----------------------|-----------------------------------------|-------------------|--------------------------------------------|
 | Create Index         | `POST /indexes`                         | `create_index`    | Creates new search index                   |
 | Delete Index         | `DELETE /indexes/{name}`                | `delete_index`    | Removes entire index                       |
 | Rename Index         | `POST /indexes/{name}/rename`           | `rename_index`    | Changes index name                         |

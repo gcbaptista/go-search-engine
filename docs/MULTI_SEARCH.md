@@ -1,6 +1,8 @@
 # Multi-Search API
 
-The Multi-Search API allows you to execute multiple named search queries independently in a single request. Each query is executed separately and results are returned individually, making it ideal for scenarios where you need to search different fields or apply different filters simultaneously.
+The Multi-Search API allows you to execute multiple named search queries independently in a single request. Each query
+is executed separately, and results are returned individually, making it ideal for scenarios where you need to search
+different fields or apply different filters simultaneously.
 
 ## Endpoint
 
@@ -34,13 +36,13 @@ POST /{indexName}/_multi_search
 ### Request Parameters
 
 - **queries** (required): Array of named search queries
-  - **name** (required): Unique identifier for the query
-  - **query** (required): Search query string
-  - **restrict_searchable_fields** (optional): Subset of searchable fields to search in
-  - **retrievable_fields** (optional): Subset of document fields to return
-  - **filters** (optional): Query-specific filters
-  - **min_word_size_for_1_typo** (optional): Override for 1-typo tolerance
-  - **min_word_size_for_2_typos** (optional): Override for 2-typo tolerance
+    - **name** (required): Unique identifier for the query
+    - **query** (required): Search query string
+    - **restrict_searchable_fields** (optional): Subset of searchable fields to search in
+    - **retrievable_fields** (optional): Subset of document fields to return
+    - **filters** (optional): Query-specific filters
+    - **min_word_size_for_1_typo** (optional): Override for 1-typo tolerance
+    - **min_word_size_for_2_typos** (optional): Override for 2-typo tolerance
 - **page** (optional): Page number for all queries (default: 1)
 - **page_size** (optional): Results per page for all queries (default: 10)
 

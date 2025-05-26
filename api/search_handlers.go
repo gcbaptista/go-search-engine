@@ -19,7 +19,7 @@ type SearchRequest struct {
 	Page                     int               `json:"page"`
 	PageSize                 int               `json:"page_size"`
 	RestrictSearchableFields []string          `json:"restrict_searchable_fields,omitempty"`
-	RetrievableFields         []string          `json:"retrievable_fields,omitempty"`
+	RetrievableFields        []string          `json:"retrievable_fields,omitempty"`
 	MinWordSizeFor1Typo      *int              `json:"min_word_size_for_1_typo,omitempty"`  // Optional: override index setting for minimum word size for 1 typo
 	MinWordSizeFor2Typos     *int              `json:"min_word_size_for_2_typos,omitempty"` // Optional: override index setting for minimum word size for 2 typos
 }
@@ -36,7 +36,7 @@ type NamedSearchRequest struct {
 	Name                     string            `json:"name" binding:"required"`
 	Query                    string            `json:"query" binding:"required"`
 	RestrictSearchableFields []string          `json:"restrict_searchable_fields,omitempty"`
-	RetrievableFields         []string          `json:"retrievable_fields,omitempty"`
+	RetrievableFields        []string          `json:"retrievable_fields,omitempty"`
 	Filters                  *services.Filters `json:"filters,omitempty"`
 	MinWordSizeFor1Typo      *int              `json:"min_word_size_for_1_typo,omitempty"`
 	MinWordSizeFor2Typos     *int              `json:"min_word_size_for_2_typos,omitempty"`
@@ -66,7 +66,7 @@ func (api *API) SearchHandler(c *gin.Context) {
 		Page:                     req.Page,
 		PageSize:                 req.PageSize,
 		RestrictSearchableFields: req.RestrictSearchableFields,
-		RetrievableFields:         req.RetrievableFields,
+		RetrievableFields:        req.RetrievableFields,
 		MinWordSizeFor1Typo:      req.MinWordSizeFor1Typo,
 		MinWordSizeFor2Typos:     req.MinWordSizeFor2Typos,
 	}
@@ -149,7 +149,7 @@ func (api *API) MultiSearchHandler(c *gin.Context) {
 			Name:                     namedReq.Name,
 			Query:                    namedReq.Query,
 			RestrictSearchableFields: namedReq.RestrictSearchableFields,
-			RetrievableFields:         namedReq.RetrievableFields,
+			RetrievableFields:        namedReq.RetrievableFields,
 			Filters:                  namedReq.Filters,
 			MinWordSizeFor1Typo:      namedReq.MinWordSizeFor1Typo,
 			MinWordSizeFor2Typos:     namedReq.MinWordSizeFor2Typos,

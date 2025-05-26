@@ -17,22 +17,23 @@
 
 ## Conventional Commits Standard
 
-- **MUST** follow the [Conventional Commits specification](https://www.conventionalcommits.org/) for all commit messages and PR titles
+- **MUST** follow the [Conventional Commits specification](https://www.conventionalcommits.org/) for all commit messages
+  and PR titles
 - **Format**: `<type>[optional scope]: <description>`
 - **Types**:
-  - `feat:` new feature
-  - `fix:` bug fix
-  - `docs:` documentation changes
-  - `style:` formatting, missing semicolons, etc.
-  - `refactor:` code change that neither fixes a bug nor adds a feature
-  - `perf:` performance improvement
-  - `test:` adding missing tests
-  - `chore:` updating build tasks, package manager configs, etc.
+    - `feat:` new feature
+    - `fix:` bug fix
+    - `docs:` documentation changes
+    - `style:` formatting, missing semicolons, etc.
+    - `refactor:` code change that neither fixes a bug nor adds a feature
+    - `perf:` performance improvement
+    - `test:` adding missing tests
+    - `chore:` updating build tasks, package manager configs, etc.
 - **Examples**:
-  - `feat(search): add multi-search endpoint with parallel execution`
-  - `fix(indexing): resolve race condition in document addition`
-  - `docs(api): update search endpoint documentation`
-  - `refactor(engine): extract filtering logic into separate module`
+    - `feat(search): add multi-search endpoint with parallel execution`
+    - `fix(indexing): resolve race condition in document addition`
+    - `docs(api): update search endpoint documentation`
+    - `refactor(engine): extract filtering logic into separate module`
 
 ## Code Review
 

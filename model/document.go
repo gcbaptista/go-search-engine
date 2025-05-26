@@ -6,7 +6,7 @@ package model
 // Example: doc["title"], doc["popularity"]
 type Document map[string]interface{}
 
-// Helper to get documentID if it's stored in the document map under "documentID" key.
+// GetDocumentID returns the documentID if it's stored in the document map under "documentID" key.
 func (d Document) GetDocumentID() (string, bool) {
 	if id, ok := d["documentID"]; ok {
 		if str, sok := id.(string); sok {
@@ -18,7 +18,7 @@ func (d Document) GetDocumentID() (string, bool) {
 	return "", false
 }
 
-// Helper to get Popularity if it's stored and is a float64.
+// GetPopularity returns the Popularity if it's stored and is a float64.
 func (d Document) GetPopularity() (float64, bool) {
 	if pop, ok := d["Popularity"]; ok { // Note: Case-sensitive key matching
 		if p, pok := pop.(float64); pok {

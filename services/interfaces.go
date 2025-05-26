@@ -37,7 +37,7 @@ type SearchQuery struct {
 	Page                     int
 	PageSize                 int
 	RestrictSearchableFields []string `json:"restrict_searchable_fields,omitempty"` // Optional: subset of searchable fields to search in
-	RetrievableFields         []string `json:"retrievable_fields,omitempty"`          // Optional: subset of document fields to return in results
+	RetrievableFields        []string `json:"retrievable_fields,omitempty"`         // Optional: subset of document fields to return in results
 	MinWordSizeFor1Typo      *int     `json:"min_word_size_for_1_typo,omitempty"`   // Optional: override index setting for minimum word size for 1 typo
 	MinWordSizeFor2Typos     *int     `json:"min_word_size_for_2_typos,omitempty"`  // Optional: override index setting for minimum word size for 2 typos
 }
@@ -54,7 +54,7 @@ type NamedSearchQuery struct {
 	Name                     string   `json:"name"`
 	Query                    string   `json:"query"`
 	RestrictSearchableFields []string `json:"restrict_searchable_fields,omitempty"`
-	RetrievableFields         []string `json:"retrievable_fields,omitempty"`
+	RetrievableFields        []string `json:"retrievable_fields,omitempty"`
 	Filters                  *Filters `json:"filters,omitempty"`
 	MinWordSizeFor1Typo      *int     `json:"min_word_size_for_1_typo,omitempty"`
 	MinWordSizeFor2Typos     *int     `json:"min_word_size_for_2_typos,omitempty"`

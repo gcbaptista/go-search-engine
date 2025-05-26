@@ -1,6 +1,7 @@
 # Filter Expressions with AND/OR Logic
 
-Filter expressions provide advanced filtering capabilities with AND/OR logic and explicit scoring, inspired by Algolia's filter syntax. This extends the basic filter scoring to support complex boolean logic.
+Filter expressions provide advanced filtering capabilities with AND/OR logic and explicit scoring, inspired by Algolia's
+filter syntax. This extends the basic filter scoring to support complex boolean logic.
 
 ## Overview
 
@@ -212,7 +213,8 @@ When no `operator` is specified in a `FilterCondition`, the system auto-detects 
 
 ### Field Name Validation
 
-The system still validates field names to prevent conflicts with operator suffixes. This ensures that field names like `"price_gte"` don't cause confusion with the `_gte` operator.
+The system still validates field names to prevent conflicts with operator suffixes. This ensures that field names like
+`"price_gte"` don't cause confusion with the `_gte` operator.
 
 ## Ranking with Filter Scores
 
@@ -235,7 +237,8 @@ When you want to sort results primarily by filter match scores, use the special 
 }
 ```
 
-**Important**: When using `~filters` as the primary ranking criterion, ensure your filter expressions include meaningful scores:
+**Important**: When using `~filters` as the primary ranking criterion, ensure your filter expressions include meaningful
+scores:
 
 ```json
 {
@@ -301,7 +304,8 @@ If no operator is specified, the system auto-detects based on the document field
 
 ### Individual Conditions
 
-Each filter condition can have an explicit `score` value. When the condition matches, this score is added to the document's total filter score.
+Each filter condition can have an explicit `score` value. When the condition matches, this score is added to the
+document's total filter score.
 
 ### Group Scoring
 
@@ -369,4 +373,5 @@ Filter expressions work seamlessly with multi-search:
 - Empty expressions match all documents
 - Unknown operators log warnings and default to OR logic
 
-This powerful filtering system gives you fine-grained control over document matching and relevance scoring, enabling sophisticated search experiences similar to enterprise search platforms.
+This powerful filtering system gives you fine-grained control over document matching and relevance scoring, enabling
+sophisticated search experiences similar to enterprise search platforms.

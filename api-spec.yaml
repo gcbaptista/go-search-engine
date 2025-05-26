@@ -153,8 +153,8 @@ paths:
               $ref: "#/components/schemas/IndexSettings"
             example:
               name: "products"
-              searchable_fields: ["title", "description", "category"]
-              filterable_fields: ["category", "price", "brand"]
+              searchable_fields: [ "title", "description", "category" ]
+              filterable_fields: [ "category", "price", "brand" ]
               ranking_criteria:
                 - field: "popularity"
                   order: "desc"
@@ -214,7 +214,7 @@ paths:
                     type: integer
                     description: Total number of indexes
               example:
-                indexes: ["movies", "documents", "products"]
+                indexes: [ "movies", "documents", "products" ]
                 count: 3
 
   /indexes/{indexName}:
@@ -349,14 +349,14 @@ paths:
               example:
                 name: "movies"
                 document_count: 1250
-                searchable_fields: ["title", "cast", "genres"]
-                filterable_fields: ["year", "rating", "genres"]
+                searchable_fields: [ "title", "cast", "genres" ]
+                filterable_fields: [ "year", "rating", "genres" ]
                 typo_settings:
                   min_word_size_for_1_typo: 4
                   min_word_size_for_2_typos: 7
                 field_settings:
-                  fields_without_prefix_search: []
-                  no_typo_tolerance_fields: ["genres"]
+                  fields_without_prefix_search: [ ]
+                  no_typo_tolerance_fields: [ "genres" ]
                   distinct_field: "title"
         "404":
           description: Index not found
@@ -407,13 +407,13 @@ paths:
                   items:
                     type: string
                   description: Fields that can be searched
-                  example: ["title", "description", "genre"]
+                  example: [ "title", "description", "genre" ]
                 filterable_fields:
                   type: array
                   items:
                     type: string
                   description: Fields that can be used in filters
-                  example: ["genre", "year", "rating"]
+                  example: [ "genre", "year", "rating" ]
                 ranking_criteria:
                   type: array
                   items:
@@ -425,7 +425,7 @@ paths:
                         example: "rating"
                       order:
                         type: string
-                        enum: ["asc", "desc"]
+                        enum: [ "asc", "desc" ]
                         description: Sort order
                         example: "desc"
                   description: Custom ranking rules
@@ -444,13 +444,13 @@ paths:
                   items:
                     type: string
                   description: Fields that don't support prefix matching
-                  example: ["id", "isbn"]
+                  example: [ "id", "isbn" ]
                 no_typo_tolerance_fields:
                   type: array
                   items:
                     type: string
                   description: Fields with exact matching only
-                  example: ["id", "isbn"]
+                  example: [ "id", "isbn" ]
                 distinct_field:
                   type: string
                   description: Field used for result deduplication
@@ -459,8 +459,8 @@ paths:
               core_settings:
                 summary: Update core settings (requires reindexing)
                 value:
-                  searchable_fields: ["title", "description", "genre"]
-                  filterable_fields: ["genre", "year", "rating"]
+                  searchable_fields: [ "title", "description", "genre" ]
+                  filterable_fields: [ "genre", "year", "rating" ]
                   ranking_criteria:
                     - field: "rating"
                       order: "desc"
@@ -469,8 +469,8 @@ paths:
               field_settings:
                 summary: Update field-level settings
                 value:
-                  fields_without_prefix_search: ["id", "isbn"]
-                  no_typo_tolerance_fields: ["id", "isbn"]
+                  fields_without_prefix_search: [ "id", "isbn" ]
+                  no_typo_tolerance_fields: [ "id", "isbn" ]
                   distinct_field: "title"
       responses:
         "202":
@@ -618,7 +618,7 @@ paths:
                   documentID: "movie_001"
                   title: "The Matrix"
                   year: 1999
-                  genres: ["Action", "Sci-Fi"]
+                  genres: [ "Action", "Sci-Fi" ]
                   rating: 8.7
               multiple_documents:
                 summary: Multiple documents
@@ -626,12 +626,12 @@ paths:
                   - documentID: "movie_001"
                     title: "The Matrix"
                     year: 1999
-                    genres: ["Action", "Sci-Fi"]
+                    genres: [ "Action", "Sci-Fi" ]
                     rating: 8.7
                   - documentID: "movie_002"
                     title: "Inception"
                     year: 2010
-                    genres: ["Action", "Thriller"]
+                    genres: [ "Action", "Thriller" ]
                     rating: 8.8
       responses:
         "202":
@@ -923,14 +923,14 @@ paths:
                 summary: Basic text search
                 value:
                   query: "lord rings"
-                  restrict_searchable_fields: ["title", "cast", "genres"]
+                  restrict_searchable_fields: [ "title", "cast", "genres" ]
                   page: 1
                   page_size: 10
               filtered_search:
                 summary: Search with filters
                 value:
                   query: "action"
-                  restrict_searchable_fields: ["title", "genres"]
+                  restrict_searchable_fields: [ "title", "genres" ]
                   filters:
                     year_gte: 2000
                     rating_gte: 8.0
@@ -941,28 +941,28 @@ paths:
                 summary: Advanced filtering examples
                 value:
                   query: "sci-fi"
-                  restrict_searchable_fields: ["title", "cast", "genres"]
+                  restrict_searchable_fields: [ "title", "cast", "genres" ]
                   filters:
                     year_gte: 1990
                     year_lte: 2020
                     rating_gt: 7.5
                     cast_contains: "Keanu"
-                    genres_contains_any_of: ["Sci-Fi", "Thriller"]
+                    genres_contains_any_of: [ "Sci-Fi", "Thriller" ]
                   page: 1
                   page_size: 20
               field_restricted_search:
                 summary: Search restricted to specific fields
                 value:
                   query: "matrix"
-                  restrict_searchable_fields: ["title"]
+                  restrict_searchable_fields: [ "title" ]
                   page: 1
                   page_size: 10
               limited_response_fields:
                 summary: Search with limited response fields
                 value:
                   query: "action movie"
-                  restrict_searchable_fields: ["title", "genres"]
-                  retrievable_fields: ["title", "year", "rating"]
+                  restrict_searchable_fields: [ "title", "genres" ]
+                  retrievable_fields: [ "title", "year", "rating" ]
                   filters:
                     year_gte: 2000
                   page: 1
@@ -971,7 +971,7 @@ paths:
                 summary: Search with custom typo tolerance settings
                 value:
                   query: "matric"
-                  restrict_searchable_fields: ["title"]
+                  restrict_searchable_fields: [ "title" ]
                   min_word_size_for_1_typo: 3
                   min_word_size_for_2_typos: 5
                   page: 1
@@ -988,13 +988,13 @@ paths:
                   - document:
                       documentID: "movie_lotr_fellowship_2001"
                       title: "The Lord of the Rings"
-                      cast: ["Elijah Wood", "Ian McKellen"]
-                      genres: ["Fantasy", "Adventure"]
+                      cast: [ "Elijah Wood", "Ian McKellen" ]
+                      genres: [ "Fantasy", "Adventure" ]
                       year: 2001
                       rating: 8.8
                     score: 12.5
                     field_matches:
-                      title: ["lord", "rings"]
+                      title: [ "lord", "rings" ]
                     hit_info:
                       num_typos: 0
                       number_exact_words: 2
@@ -1061,10 +1061,10 @@ paths:
                   queries:
                     - name: "title_search"
                       query: "science fiction"
-                      restrict_searchable_fields: ["title"]
+                      restrict_searchable_fields: [ "title" ]
                     - name: "cast_search"
                       query: "keanu reeves"
-                      restrict_searchable_fields: ["cast"]
+                      restrict_searchable_fields: [ "cast" ]
                   page: 1
                   page_size: 10
               filtered_multi_search:
@@ -1073,13 +1073,13 @@ paths:
                   queries:
                     - name: "recent_action"
                       query: "action"
-                      restrict_searchable_fields: ["genres"]
+                      restrict_searchable_fields: [ "genres" ]
                       filters:
                         year_gte: 2010
                         rating_gte: 7.0
                     - name: "classic_drama"
                       query: "drama"
-                      restrict_searchable_fields: ["genres"]
+                      restrict_searchable_fields: [ "genres" ]
                       filters:
                         year_lt: 2000
                         rating_gte: 8.0
@@ -1089,12 +1089,12 @@ paths:
                   queries:
                     - name: "exact_search"
                       query: "matrix"
-                      restrict_searchable_fields: ["title"]
+                      restrict_searchable_fields: [ "title" ]
                       min_word_size_for_1_typo: 0
                       min_word_size_for_2_typos: 0
                     - name: "fuzzy_search"
                       query: "matric"
-                      restrict_searchable_fields: ["title"]
+                      restrict_searchable_fields: [ "title" ]
                       min_word_size_for_1_typo: 3
                       min_word_size_for_2_typos: 6
       responses:
@@ -1126,12 +1126,12 @@ paths:
                           - document:
                               documentID: "movie_123"
                               title: "The Matrix"
-                              cast: ["Keanu Reeves", "Laurence Fishburne"]
+                              cast: [ "Keanu Reeves", "Laurence Fishburne" ]
                             score: 0.87
                           - document:
                               documentID: "movie_456"
                               title: "John Wick"
-                              cast: ["Keanu Reeves"]
+                              cast: [ "Keanu Reeves" ]
                             score: 0.82
                         total: 2
                         page: 1
@@ -1192,13 +1192,13 @@ components:
             Fields that can be searched, in priority order. 
             IMPORTANT: Order matters! The search engine will fully exhaust each field 
             (exact matches + typo tolerance) before proceeding to the next field.
-          example: ["title", "cast", "genres"]
+          example: [ "title", "cast", "genres" ]
         filterable_fields:
           type: array
           items:
             type: string
           description: Fields that can be used in filters
-          example: ["year", "rating", "genres"]
+          example: [ "year", "rating", "genres" ]
         ranking_criteria:
           type: array
           items:
@@ -1219,19 +1219,19 @@ components:
           items:
             type: string
           description: Fields for which prefix/n-gram search is disabled
-          example: ["author", "isbn"]
+          example: [ "author", "isbn" ]
         no_typo_tolerance_fields:
           type: array
           items:
             type: string
           description: Fields for which typo tolerance is disabled (only exact matches)
-          example: ["isbn", "product_code"]
+          example: [ "isbn", "product_code" ]
         non_typo_tolerant_words:
           type: array
           items:
             type: string
           description: Specific words that should never be typo-matched (e.g., sensitive terms, proper nouns)
-          example: ["hitler", "stalin", "covid", "nasa"]
+          example: [ "hitler", "stalin", "covid", "nasa" ]
         distinct_field:
           type: string
           description: Field to use for deduplication to avoid returning duplicate documents
@@ -1249,7 +1249,7 @@ components:
           example: "popularity"
         order:
           type: string
-          enum: ["asc", "desc"]
+          enum: [ "asc", "desc" ]
           description: Sort order
           example: "desc"
 
@@ -1261,19 +1261,19 @@ components:
           items:
             type: string
           description: Fields for which prefix/n-gram search should be disabled
-          example: ["author", "isbn"]
+          example: [ "author", "isbn" ]
         no_typo_tolerance_fields:
           type: array
           items:
             type: string
           description: Fields for which typo tolerance should be disabled (only exact matches)
-          example: ["isbn", "product_code"]
+          example: [ "isbn", "product_code" ]
         non_typo_tolerant_words:
           type: array
           items:
             type: string
           description: Specific words that should never be typo-matched (e.g., sensitive terms, proper nouns)
-          example: ["hitler", "stalin", "covid", "nasa"]
+          example: [ "hitler", "stalin", "covid", "nasa" ]
         distinct_field:
           type: string
           description: Field to use for deduplication to avoid returning duplicate documents
@@ -1285,7 +1285,7 @@ components:
           description: |
             Fields that can be searched, in priority order. Higher priority fields are searched first.
             **WARNING**: Changing this requires full reindexing and will be performed automatically.
-          example: ["title", "cast", "genres"]
+          example: [ "title", "cast", "genres" ]
         filterable_fields:
           type: array
           items:
@@ -1293,7 +1293,7 @@ components:
           description: |
             Fields that can be used in filters (exact match, range, contains operations).
             **WARNING**: Changing this may require reindexing and will be performed automatically.
-          example: ["year", "rating", "genres"]
+          example: [ "year", "rating", "genres" ]
         ranking_criteria:
           type: array
           items:
@@ -1337,8 +1337,8 @@ components:
       example:
         documentID: "product_12345_variant_red"
         title: "The Matrix"
-        cast: ["Keanu Reeves", "Laurence Fishburne"]
-        genres: ["Action", "Sci-Fi"]
+        cast: [ "Keanu Reeves", "Laurence Fishburne" ]
+        genres: [ "Action", "Sci-Fi" ]
         year: 1999
         rating: 8.7
         popularity: 92.0
@@ -1361,7 +1361,7 @@ components:
             This allows you to restrict search to only specific fields (e.g., search only in "title" field).
             If omitted, all configured searchable_fields will be used.
             An error will be returned if this field contains invalid field names.
-          example: ["title", "cast"]
+          example: [ "title", "cast" ]
         retrievable_fields:
           type: array
           items:
@@ -1370,7 +1370,7 @@ components:
             **OPTIONAL**: Subset of document fields to return in search results. If not provided, all document fields will be returned.
             The documentID field is always included regardless of this parameter.
             This allows you to limit the response size by only returning specific fields (e.g., only "title" and "year").
-          example: ["title", "year", "rating"]
+          example: [ "title", "year", "rating" ]
         filters:
           type: object
           additionalProperties: true
@@ -1462,8 +1462,8 @@ components:
               type: string
           description: Fields and terms that matched the query
           example:
-            title: ["lord", "rings"]
-            cast: ["elijah"]
+            title: [ "lord", "rings" ]
+            cast: [ "elijah" ]
         hit_info:
           $ref: "#/components/schemas/HitInfo"
 
@@ -1513,7 +1513,7 @@ components:
           example: 45
         response_time_change:
           type: string
-          enum: ["up", "down", "stable"]
+          enum: [ "up", "down", "stable" ]
           description: Change in response time compared to the previous period
           example: "down"
         total_documents:
@@ -1610,7 +1610,7 @@ components:
           example: 1247
         trend_change:
           type: string
-          enum: ["up", "stable", "down"]
+          enum: [ "up", "stable", "down" ]
           description: Change in search count compared to the previous period
           example: "up"
 
@@ -1653,7 +1653,7 @@ components:
           example: "550e8400-e29b-41d4-a716-446655440000"
         type:
           type: string
-          enum: ["reindex"]
+          enum: [ "reindex" ]
           description: Type of background job
           example: "reindex"
         status:
@@ -1722,30 +1722,30 @@ components:
         - current
         - total
 
-         MultiSearchRequest:
-       type: object
-       required:
-         - queries
-       properties:
-         queries:
-           type: array
-           items:
-             $ref: "#/components/schemas/NamedSearchRequest"
-           description: List of named search queries to execute
-           minItems: 1
-         page:
-           type: integer
-           minimum: 1
-           default: 1
-           description: Page number for individual query results
-           example: 1
-         page_size:
-           type: integer
-           minimum: 1
-           maximum: 100
-           default: 10
-           description: Number of results per page for individual query results
-           example: 10
+          MultiSearchRequest:
+        type: object
+        required:
+          - queries
+        properties:
+          queries:
+            type: array
+            items:
+              $ref: "#/components/schemas/NamedSearchRequest"
+            description: List of named search queries to execute
+            minItems: 1
+          page:
+            type: integer
+            minimum: 1
+            default: 1
+            description: Page number for individual query results
+            example: 1
+          page_size:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+            description: Number of results per page for individual query results
+            example: 10
 
     NamedSearchRequest:
       type: object
@@ -1767,14 +1767,14 @@ components:
             type: string
           description: |
             Optional subset of searchable fields to search in. If not provided, searches all configured searchable fields.
-          example: ["title", "description"]
+          example: [ "title", "description" ]
         retrievable_fields:
           type: array
           items:
             type: string
           description: |
             Optional subset of document fields to return in results for this query.
-          example: ["title", "year", "cast"]
+          example: [ "title", "year", "cast" ]
         filters:
           type: object
           additionalProperties: true
@@ -1807,14 +1807,14 @@ components:
             Individual search results keyed by query name.
           example:
             title_search:
-              hits: []
+              hits: [ ]
               total: 5
               page: 1
               page_size: 10
               took: 12
               query_id: "uuid-1"
             cast_search:
-              hits: []
+              hits: [ ]
               total: 3
               page: 1
               page_size: 10
@@ -1835,8 +1835,8 @@ components:
       summary: Movie database index
       value:
         name: "movies"
-        searchable_fields: ["title", "cast", "plot", "genres"]
-        filterable_fields: ["year", "rating", "director", "genres"]
+        searchable_fields: [ "title", "cast", "plot", "genres" ]
+        filterable_fields: [ "year", "rating", "director", "genres" ]
         ranking_criteria:
           - field: "popularity"
             order: "desc"
@@ -1849,8 +1849,8 @@ components:
       summary: E-commerce product index
       value:
         name: "products"
-        searchable_fields: ["name", "description", "brand", "category"]
-        filterable_fields: ["price", "brand", "category", "in_stock"]
+        searchable_fields: [ "name", "description", "brand", "category" ]
+        filterable_fields: [ "price", "brand", "category", "in_stock" ]
         ranking_criteria:
           - field: "popularity"
             order: "desc"
@@ -1858,4 +1858,4 @@ components:
             order: "asc"
         min_word_size_for_1_typo: 3
         min_word_size_for_2_typos: 6
-        fields_without_prefix_search: ["brand"]
+        fields_without_prefix_search: [ "brand" ]

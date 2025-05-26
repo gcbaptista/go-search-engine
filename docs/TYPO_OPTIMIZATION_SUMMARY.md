@@ -6,7 +6,9 @@
 
 ## Overview
 
-The typo tolerance mechanism has been significantly optimized to improve search performance, especially for large indexes. The search engine now uses **Damerau-Levenshtein distance** instead of standard Levenshtein distance, providing **massive performance improvements** and **better typo detection** for common user errors.
+The typo tolerance mechanism has been significantly optimized to improve search performance, especially for large
+indexes. The search engine now uses **Damerau-Levenshtein distance** instead of standard Levenshtein distance, providing
+**massive performance improvements** and **better typo detection** for common user errors.
 
 ## Key Improvements
 
@@ -71,7 +73,7 @@ GenerateTyposSimple()                             // Simple interface with early
 ## Performance Benchmarks
 
 | Algorithm                       | Performance | Notes                         |
-| ------------------------------- | ----------- | ----------------------------- |
+|---------------------------------|-------------|-------------------------------|
 | Standard Levenshtein            | ~2076 ns/op | Baseline                      |
 | Damerau-Levenshtein             | ~2157 ns/op | +4% overhead, better accuracy |
 | Damerau-Levenshtein (WithLimit) | ~1367 ns/op | **34% faster** than baseline  |
@@ -117,7 +119,8 @@ The implementation with early termination uses a three-row approach instead of a
 3. **Result count limit**: Stop when enough typos found
 4. **Time limit**: Stop after configured timeout
 
-This consolidation provides a cleaner, faster, and more maintainable typo tolerance system while improving search accuracy for end users.
+This consolidation provides a cleaner, faster, and more maintainable typo tolerance system while improving search
+accuracy for end users.
 
 ## Performance Results
 
@@ -221,7 +224,8 @@ if maxResults > 0 && len(typos) >= maxResults {
 - ✅ **Adaptive behavior**: Works well with any index size
 - ✅ **User experience**: Consistent response times
 
-**Important**: These are **indexed terms** (like "action", "actor", "acting"), not documents. Each term can match many documents through its posting list.
+**Important**: These are **indexed terms** (like "action", "actor", "acting"), not documents. Each term can match many
+documents through its posting list.
 
 ### **Performance Monitoring & Warnings**
 
@@ -316,9 +320,9 @@ typos2 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 2, maxTypoResults,
 ### For search queries with multiple tokens:
 
 - A 3-token query with typo tolerance:
-  - **Before**: ~29ms just for typo processing
-  - **After**: ~0.0003ms for typo processing
-  - **Overall search latency**: Reduced from ~50ms to ~5ms
+    - **Before**: ~29ms just for typo processing
+    - **After**: ~0.0003ms for typo processing
+    - **Overall search latency**: Reduced from ~50ms to ~5ms
 
 ## Memory Usage
 
@@ -378,4 +382,6 @@ Potential further optimizations:
 
 ## Conclusion
 
-The typo tolerance optimizations provide **dramatic performance improvements** (up to 95,000x faster) while maintaining full backward compatibility and the same search quality. This makes the search engine suitable for production use with large indexes and high query volumes.
+The typo tolerance optimizations provide **dramatic performance improvements** (up to 95,000x faster) while maintaining
+full backward compatibility and the same search quality. This makes the search engine suitable for production use with
+large indexes and high query volumes.

@@ -9,8 +9,16 @@
         "filters": {
           "operator": "OR",
           "filters": [
-            {"field": "genre", "value": "Action", "score": 2.0},
-            {"field": "genre", "value": "Comedy", "score": 1.5}
+            {
+              "field": "genre",
+              "value": "Action",
+              "score": 2.0
+            },
+            {
+              "field": "genre",
+              "value": "Comedy",
+              "score": 1.5
+            }
           ]
         }
       }
@@ -23,8 +31,16 @@
         "filters": {
           "operator": "AND",
           "filters": [
-            {"field": "genre", "value": "Action", "score": 2.0},
-            {"field": "is_premium", "value": true, "score": 3.0}
+            {
+              "field": "genre",
+              "value": "Action",
+              "score": 2.0
+            },
+            {
+              "field": "is_premium",
+              "value": true,
+              "score": 3.0
+            }
           ]
         }
       }
@@ -40,15 +56,32 @@
             {
               "operator": "OR",
               "filters": [
-                {"field": "genre", "value": "Action", "score": 2.0},
-                {"field": "genre", "value": "Comedy", "score": 1.5}
+                {
+                  "field": "genre",
+                  "value": "Action",
+                  "score": 2.0
+                },
+                {
+                  "field": "genre",
+                  "value": "Comedy",
+                  "score": 1.5
+                }
               ]
             },
             {
               "operator": "OR",
               "filters": [
-                {"field": "is_premium", "value": true, "score": 3.0},
-                {"field": "rating", "operator": "_gte", "value": 8.0, "score": 2.5}
+                {
+                  "field": "is_premium",
+                  "value": true,
+                  "score": 3.0
+                },
+                {
+                  "field": "rating",
+                  "operator": "_gte",
+                  "value": 8.0,
+                  "score": 2.5
+                }
               ]
             }
           ]
@@ -63,8 +96,18 @@
         "filters": {
           "operator": "OR",
           "filters": [
-            {"field": "filters", "operator": "_contains", "value": "plat_pc_dev_computer", "score": 2.0},
-            {"field": "filters", "operator": "_contains", "value": "plat_dev_all", "score": 1.0}
+            {
+              "field": "filters",
+              "operator": "_contains",
+              "value": "plat_pc_dev_computer",
+              "score": 2.0
+            },
+            {
+              "field": "filters",
+              "operator": "_contains",
+              "value": "plat_dev_all",
+              "score": 1.0
+            }
           ]
         }
       }
@@ -80,43 +123,90 @@
             {
               "operator": "OR",
               "filters": [
-                {"field": "suggestionType", "value": "programme", "score": 0.5},
-                {"field": "suggestionType", "value": "series", "score": 0.5}
+                {
+                  "field": "suggestionType",
+                  "value": "programme",
+                  "score": 0.5
+                },
+                {
+                  "field": "suggestionType",
+                  "value": "series",
+                  "score": 0.5
+                }
               ]
             },
             {
               "operator": "OR",
               "filters": [
-                {"field": "filters", "operator": "_contains", "value": "plat_pc_dev_computer", "score": 1.0},
-                {"field": "filters", "operator": "_contains", "value": "plat_dev_all", "score": 1.0}
+                {
+                  "field": "filters",
+                  "operator": "_contains",
+                  "value": "plat_pc_dev_computer",
+                  "score": 1.0
+                },
+                {
+                  "field": "filters",
+                  "operator": "_contains",
+                  "value": "plat_dev_all",
+                  "score": 1.0
+                }
               ]
             },
             {
               "operator": "OR",
               "filters": [
-                {"field": "filters", "operator": "_contains", "value": "prop_nbcuott", "score": 0.8},
-                {"field": "filters", "operator": "_contains", "value": "prop_all", "score": 0.8}
+                {
+                  "field": "filters",
+                  "operator": "_contains",
+                  "value": "prop_nbcuott",
+                  "score": 0.8
+                },
+                {
+                  "field": "filters",
+                  "operator": "_contains",
+                  "value": "prop_all",
+                  "score": 0.8
+                }
               ]
             },
             {
               "operator": "OR",
               "filters": [
-                {"field": "filters", "operator": "_contains", "value": "content_format_longform", "score": 0.6},
-                {"field": "filters", "operator": "_contains", "value": "content_format_trailer", "score": 0.6}
+                {
+                  "field": "filters",
+                  "operator": "_contains",
+                  "value": "content_format_longform",
+                  "score": 0.6
+                },
+                {
+                  "field": "filters",
+                  "operator": "_contains",
+                  "value": "content_format_trailer",
+                  "score": 0.6
+                }
               ]
             },
             {
               "operator": "OR",
               "filters": [
-                {"field": "filters", "operator": "_contains", "value": "no_broadcast_region_required", "score": 0.4},
-                {"field": "filters", "operator": "_contains", "value": "rgn_all", "score": 0.4}
+                {
+                  "field": "filters",
+                  "operator": "_contains",
+                  "value": "no_broadcast_region_required",
+                  "score": 0.4
+                },
+                {
+                  "field": "filters",
+                  "operator": "_contains",
+                  "value": "rgn_all",
+                  "score": 0.4
+                }
               ]
             }
           ]
         }
       }
     },
-
     {
       "name": "Multi-Search with Filter Expressions",
       "description": "Using filter expressions in multi-search queries",
@@ -128,8 +218,16 @@
             "filters": {
               "operator": "AND",
               "filters": [
-                {"field": "genre", "value": "Action", "score": 2.0},
-                {"field": "is_premium", "value": true, "score": 5.0}
+                {
+                  "field": "genre",
+                  "value": "Action",
+                  "score": 2.0
+                },
+                {
+                  "field": "is_premium",
+                  "value": true,
+                  "score": 5.0
+                }
               ]
             }
           },
@@ -139,8 +237,18 @@
             "filters": {
               "operator": "OR",
               "filters": [
-                {"field": "filters", "operator": "_contains", "value": "plat_pc_dev_computer", "score": 1.0},
-                {"field": "filters", "operator": "_contains", "value": "plat_mobile_dev_phone", "score": 0.8}
+                {
+                  "field": "filters",
+                  "operator": "_contains",
+                  "value": "plat_pc_dev_computer",
+                  "score": 1.0
+                },
+                {
+                  "field": "filters",
+                  "operator": "_contains",
+                  "value": "plat_mobile_dev_phone",
+                  "score": 0.8
+                }
               ]
             }
           }
@@ -152,9 +260,18 @@
       "description": "Using filter scores in ranking criteria",
       "index_settings": {
         "ranking_criteria": [
-          {"field": "~filters", "order": "desc"},
-          {"field": "~score", "order": "desc"},
-          {"field": "year", "order": "desc"}
+          {
+            "field": "~filters",
+            "order": "desc"
+          },
+          {
+            "field": "~score",
+            "order": "desc"
+          },
+          {
+            "field": "year",
+            "order": "desc"
+          }
         ]
       },
       "query": {
@@ -162,9 +279,21 @@
         "filters": {
           "operator": "OR",
           "filters": [
-            {"field": "genre", "value": "Action", "score": 5.0},
-            {"field": "genre", "value": "Comedy", "score": 3.0},
-            {"field": "genre", "value": "Drama", "score": 2.0}
+            {
+              "field": "genre",
+              "value": "Action",
+              "score": 5.0
+            },
+            {
+              "field": "genre",
+              "value": "Comedy",
+              "score": 3.0
+            },
+            {
+              "field": "genre",
+              "value": "Drama",
+              "score": 2.0
+            }
           ]
         }
       }
@@ -174,7 +303,7 @@
     "_exact",
     "_contains",
     "_gte",
-    "_gt", 
+    "_gt",
     "_lte",
     "_lt",
     "_ne",
