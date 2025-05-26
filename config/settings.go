@@ -37,6 +37,7 @@ type IndexSettings struct {
 	MinWordSizeFor2Typos      int                `json:"min_word_size_for_2_typos"`    // Minimum word length to allow 2 typos (e.g., 7)
 	FieldsWithoutPrefixSearch []string           `json:"fields_without_prefix_search"` // Fields for which prefix/n-gram search is disabled (only whole words indexed)
 	NoTypoToleranceFields     []string           `json:"no_typo_tolerance_fields"`     // Fields for which typo tolerance is disabled (only exact matches)
+	NonTypoTolerantWords      []string           `json:"non_typo_tolerant_words"`      // Specific words that should never be typo-matched (e.g., sensitive terms, proper nouns)
 	DistinctField             string             `json:"distinct_field"`               // Field to use for deduplication to avoid returning duplicate documents
 	// Future: Field weights for relevance scoring
 }
@@ -64,6 +65,7 @@ func (settings *IndexSettings) ValidateFieldNames() []string {
 	allFields = append(allFields, settings.FilterableFields...)
 	allFields = append(allFields, settings.FieldsWithoutPrefixSearch...)
 	allFields = append(allFields, settings.NoTypoToleranceFields...)
+	allFields = append(allFields, settings.NonTypoTolerantWords...)
 	if settings.DistinctField != "" {
 		allFields = append(allFields, settings.DistinctField)
 	}

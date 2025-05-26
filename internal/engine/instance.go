@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/gcbaptista/go-search-engine/config"
@@ -87,6 +88,15 @@ func (i *IndexInstance) Search(query services.SearchQuery) (services.SearchResul
 		return services.SearchResult{}, fmt.Errorf("search service not initialized for index '%s'", i.settings.Name)
 	}
 	return i.searcher.Search(query)
+}
+
+// MultiSearch delegates to the underlying Searcher service.
+// This satisfies a part of the services.IndexAccessor interface.
+func (i *IndexInstance) MultiSearch(query services.MultiSearchQuery) (*services.MultiSearchResult, error) {
+	if i.searcher == nil {
+		return nil, fmt.Errorf("search service not initialized for index '%s'", i.settings.Name)
+	}
+	return i.searcher.MultiSearch(context.Background(), query)
 }
 
 // Settings returns the configuration settings for this index.

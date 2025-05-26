@@ -9,7 +9,7 @@ import (
 
 // Generate test data for benchmarks
 func generateTestTerms(count int, avgLength int) []string {
-	rand.Seed(time.Now().UnixNano())
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	terms := make([]string, count)
 
 	words := []string{
@@ -26,18 +26,18 @@ func generateTestTerms(count int, avgLength int) []string {
 
 	for i := 0; i < count; i++ {
 		// Sometimes use existing words, sometimes generate random strings
-		if rand.Float32() < 0.7 {
-			terms[i] = words[rand.Intn(len(words))]
+		if rng.Float32() < 0.7 {
+			terms[i] = words[rng.Intn(len(words))]
 		} else {
 			// Generate random string
-			length := avgLength + rand.Intn(5) - 2 // avgLength ± 2
+			length := avgLength + rng.Intn(5) - 2 // avgLength ± 2
 			if length < 3 {
 				length = 3
 			}
 
 			runes := make([]rune, length)
 			for j := 0; j < length; j++ {
-				runes[j] = rune('a' + rand.Intn(26))
+				runes[j] = rune('a' + rng.Intn(26))
 			}
 			terms[i] = string(runes)
 		}
@@ -59,7 +59,7 @@ func BenchmarkGenerateTyposOriginal(b *testing.B) {
 	}
 }
 
-// Benchmark the optimized simple version
+// Benchmark the simple version with early termination
 func BenchmarkGenerateTyposSimple(b *testing.B) {
 	indexedTerms := generateTestTerms(1000, 6)
 	queryTerms := []string{"action", "advnture", "comdy", "thrlr", "mysterey"}
@@ -72,8 +72,8 @@ func BenchmarkGenerateTyposSimple(b *testing.B) {
 	}
 }
 
-// Benchmark the optimized finder with cache
-func BenchmarkTypoFinderOptimized(b *testing.B) {
+// Benchmark the typo finder with cache
+func BenchmarkTypoFinderWithCache(b *testing.B) {
 	indexedTerms := generateTestTerms(1000, 6)
 	queryTerms := []string{"action", "advnture", "comdy", "thrlr", "mysterey"}
 
@@ -83,7 +83,7 @@ func BenchmarkTypoFinderOptimized(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for _, term := range queryTerms {
-			_ = finder.GenerateTyposOptimized(term, 1, 10) // Limit to 10 results
+			_ = finder.GenerateTypos(term, 1, 10) // Limit to 10 results
 		}
 	}
 }
@@ -112,14 +112,14 @@ func BenchmarkScaling(b *testing.B) {
 			}
 		})
 
-		b.Run(fmt.Sprintf("Optimized_%d", size), func(b *testing.B) {
+		b.Run(fmt.Sprintf("WithCache_%d", size), func(b *testing.B) {
 			finder := NewTypoFinder(indexedTerms)
 			finder.UpdateIndexedTerms(indexedTerms)
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
 				for _, term := range queryTerms {
-					_ = finder.GenerateTyposOptimized(term, 1, 10)
+					_ = finder.GenerateTypos(term, 1, 10)
 				}
 			}
 		})
@@ -144,10 +144,10 @@ func BenchmarkLevenshteinDistance(b *testing.B) {
 		}
 	})
 
-	b.Run("Optimized", func(b *testing.B) {
+	b.Run("WithLimit", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for _, pair := range testPairs {
-				_ = CalculateLevenshteinDistanceOptimized(pair[0], pair[1], 2)
+				_ = CalculateDamerauLevenshteinDistanceWithLimit(pair[0], pair[1], 2)
 			}
 		}
 	})
@@ -165,7 +165,7 @@ func BenchmarkCacheEffectiveness(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for _, term := range queryTerms {
-			_ = finder.GenerateTyposOptimized(term, 1, 10)
+			_ = finder.GenerateTypos(term, 1, 10)
 		}
 	}
 }
@@ -185,7 +185,7 @@ func BenchmarkEarlyTermination(b *testing.B) {
 		}
 	})
 
-	b.Run("Optimized", func(b *testing.B) {
+	b.Run("Simple", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for _, term := range queryTerms {
 				_ = GenerateTyposSimple(term, indexedTerms, 1)

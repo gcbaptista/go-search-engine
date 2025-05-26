@@ -26,6 +26,21 @@ export interface IndexSettingsUpdate {
 	fields_without_prefix_search?: string[];
 	no_typo_tolerance_fields?: string[];
 	distinct_field?: string;
+	searchable_fields?: string[];
+	filterable_fields?: string[];
+	ranking_criteria?: RankingCriterion[];
+	min_word_size_for_1_typo?: number;
+	min_word_size_for_2_typos?: number;
+}
+
+export interface RenameIndexRequest {
+	new_name: string;
+}
+
+export interface RenameIndexResponse {
+	message: string;
+	old_name: string;
+	new_name: string;
 }
 
 export interface Document {
@@ -81,6 +96,7 @@ export interface IndexListResponse {
 export interface UpdateIndexSettingsResponse {
 	message: string;
 	warning?: string;
+	reindexed?: boolean; // Whether documents were automatically reindexed
 }
 
 // ===== Filter Types =====

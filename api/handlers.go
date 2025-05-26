@@ -7,21 +7,27 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/gcbaptista/go-search-engine/config"
+	"github.com/gcbaptista/go-search-engine/internal/analytics"
 	"github.com/gcbaptista/go-search-engine/internal/engine"
 	"github.com/gcbaptista/go-search-engine/model"
 	"github.com/gcbaptista/go-search-engine/services"
-	"github.com/gin-gonic/gin"
 )
 
 // API holds dependencies for API handlers, primarily the search engine manager.
 type API struct {
-	engine services.IndexManager
+	engine    services.IndexManager
+	analytics *analytics.Service
 }
 
 // NewAPI creates a new API handler structure.
 func NewAPI(engine services.IndexManager) *API {
-	return &API{engine: engine}
+	return &API{
+		engine:    engine,
+		analytics: analytics.NewService(engine),
+	}
 }
 
 // SetupRoutes defines all the API routes for the search engine.
@@ -31,6 +37,16 @@ func SetupRoutes(router *gin.Engine, engine services.IndexManager) {
 	// Health check route
 	router.GET("/health", apiHandler.HealthCheckHandler)
 
+	// Analytics route
+	router.GET("/analytics", apiHandler.GetAnalyticsHandler)
+
+	// Job management routes
+	jobRoutes := router.Group("/jobs")
+	{
+		jobRoutes.GET("/:jobId", apiHandler.GetJobHandler)         // Get job status by ID
+		jobRoutes.GET("/metrics", apiHandler.GetJobMetricsHandler) // Get job performance metrics
+	}
+
 	// Index management routes
 	indexRoutes := router.Group("/indexes")
 	{
@@ -39,7 +55,9 @@ func SetupRoutes(router *gin.Engine, engine services.IndexManager) {
 		indexRoutes.GET("/:indexName", apiHandler.GetIndexHandler)                       // Get specific index details (e.g., settings)
 		indexRoutes.DELETE("/:indexName", apiHandler.DeleteIndexHandler)                 // Delete an index
 		indexRoutes.PATCH("/:indexName/settings", apiHandler.UpdateIndexSettingsHandler) // Update index settings
+		indexRoutes.POST("/:indexName/rename", apiHandler.RenameIndexHandler)            // Rename an index
 		indexRoutes.GET("/:indexName/stats", apiHandler.GetIndexStatsHandler)            // Get index statistics
+		indexRoutes.GET("/:indexName/jobs", apiHandler.ListJobsHandler)                  // List jobs for an index
 
 		// Document management routes per index
 		docRoutes := indexRoutes.Group("/:indexName/documents")
@@ -51,8 +69,9 @@ func SetupRoutes(router *gin.Engine, engine services.IndexManager) {
 			docRoutes.DELETE("/:documentId", apiHandler.DeleteDocumentHandler) // Delete specific document
 		}
 
-		// Search route per index
+		// Search routes per index
 		indexRoutes.POST("/:indexName/_search", apiHandler.SearchHandler)
+		indexRoutes.POST("/:indexName/_multi_search", apiHandler.MultiSearchHandler)
 	}
 }
 
@@ -70,28 +89,38 @@ func (api *API) CreateIndexHandler(c *gin.Context) {
 		return
 	}
 
-	// Default ranking if not provided
-	if len(settings.RankingCriteria) == 0 {
-		// Default to sorting by relevance score (implicit) and then by a common field like title or a specified default.
-		// For now, let's assume if no ranking criteria are provided, the search service default (score-based) is sufficient.
-		// Or, we can add a default like:
-		// settings.RankingCriteria = []config.RankingCriterion{{"Field": "title", "Order": "asc"}}
-		// However, the bootstrap script already provides ranking criteria. Let's keep it simple:
-		// No explicit default ranking criteria added here; expect it from client or rely on search service defaults.
+	// Default ranking if not provided - search service will use default (score-based) ranking
+
+	// Create index asynchronously
+	var jobID string
+	var err error
+	if concreteEngine, ok := api.engine.(*engine.Engine); ok {
+		jobID, err = concreteEngine.CreateIndexAsync(settings)
+	} else {
+		err = api.engine.CreateIndex(settings)
 	}
 
-	err := api.engine.CreateIndex(settings)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create index: " + err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"message": "Index '" + settings.Name + "' created successfully"})
+
+	if jobID != "" {
+		// Async response with job ID
+		c.JSON(http.StatusAccepted, gin.H{
+			"status":  "accepted",
+			"message": "Index creation started for '" + settings.Name + "'",
+			"job_id":  jobID,
+		})
+	} else {
+		c.JSON(http.StatusCreated, gin.H{"message": "Index '" + settings.Name + "' created successfully"})
+	}
 }
 
 // AddDocumentsHandler handles adding/updating documents in an index.
 func (api *API) AddDocumentsHandler(c *gin.Context) {
 	indexName := c.Param("indexName")
-	indexAccessor, err := api.engine.GetIndex(indexName)
+	_, err := api.engine.GetIndex(indexName)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
 		return
@@ -156,66 +185,108 @@ func (api *API) AddDocumentsHandler(c *gin.Context) {
 		}
 		docMap["documentID"] = finalDocumentID // Ensure the map has a clean string for the indexing service.
 
-		// Note: In a truly schema-agnostic system, documentID is the only required field
-		// All other fields are optional and depend on the index configuration (searchable_fields, filterable_fields)
+		// documentID is the only required field; all others depend on index configuration
 	}
 
-	err = indexAccessor.AddDocuments(docs)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add documents to index '" + indexName + "': " + err.Error()})
-		return
-	}
-
+	// Add documents asynchronously
+	var jobID string
 	if concreteEngine, ok := api.engine.(*engine.Engine); ok {
-		if err := concreteEngine.PersistIndexData(indexName); err != nil {
-			log.Printf("Warning: Failed to persist data for index '%s' after adding documents: %v", indexName, err)
+		jobID, err = concreteEngine.AddDocumentsAsync(indexName, docs)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start async document addition: " + err.Error()})
+			return
 		}
-	} else {
-		log.Printf("Warning: Could not type assert IndexManager to Engine to persist data for index '%s'. Persistence skipped.", indexName)
-	}
 
-	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%d document(s) added/updated in index '%s'", len(docs), indexName)})
+		// Return job ID with 202 Accepted status
+		c.JSON(http.StatusAccepted, gin.H{
+			"status":         "accepted",
+			"message":        fmt.Sprintf("Document addition started for index '%s' (%d documents)", indexName, len(docs)),
+			"job_id":         jobID,
+			"document_count": len(docs),
+		})
+	} else {
+		indexAccessor, _ := api.engine.GetIndex(indexName)
+		err = indexAccessor.AddDocuments(docs)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add documents to index '" + indexName + "': " + err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%d document(s) added/updated in index '%s'", len(docs), indexName)})
+	}
 }
 
 // DeleteAllDocumentsHandler handles the request to delete all documents from an index.
 func (api *API) DeleteAllDocumentsHandler(c *gin.Context) {
 	indexName := c.Param("indexName")
-	indexAccessor, err := api.engine.GetIndex(indexName)
+	_, err := api.engine.GetIndex(indexName)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
 		return
 	}
 
-	err = indexAccessor.DeleteAllDocuments()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete all documents from index '" + indexName + "': " + err.Error()})
-		return
-	}
-
+	// Delete all documents asynchronously
+	var jobID string
 	if concreteEngine, ok := api.engine.(*engine.Engine); ok {
-		if err := concreteEngine.PersistIndexData(indexName); err != nil {
-			log.Printf("Warning: Failed to persist data for index '%s' after deleting all documents: %v", indexName, err)
+		jobID, err = concreteEngine.DeleteAllDocumentsAsync(indexName)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start async document deletion: " + err.Error()})
+			return
 		}
-	} else {
-		log.Printf("Warning: Could not type assert IndexManager to Engine to persist data for index '%s'. Persistence skipped.", indexName)
-	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "All documents deleted from index '" + indexName + "'"})
+		// Return job ID with 202 Accepted status
+		c.JSON(http.StatusAccepted, gin.H{
+			"status":  "accepted",
+			"message": fmt.Sprintf("Document deletion started for index '%s'", indexName),
+			"job_id":  jobID,
+		})
+	} else {
+		indexAccessor, _ := api.engine.GetIndex(indexName)
+		err = indexAccessor.DeleteAllDocuments()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete all documents from index '" + indexName + "': " + err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "All documents deleted from index '" + indexName + "'"})
+	}
 }
 
 // SearchRequest defines the structure for search queries.
 // It's slightly different from services.SearchQuery to accommodate JSON binding for filters.
 type SearchRequest struct {
-	Query    string                 `json:"query"`
-	Filters  map[string]interface{} `json:"filters"`
-	Page     int                    `json:"page"`
-	PageSize int                    `json:"page_size"`
+	Query                    string                 `json:"query"`
+	Filters                  map[string]interface{} `json:"filters"`
+	Page                     int                    `json:"page"`
+	PageSize                 int                    `json:"page_size"`
+	RestrictSearchableFields []string               `json:"restrict_searchable_fields,omitempty"`
+	RetrivableFields         []string               `json:"retrivable_fields,omitempty"`
+	MinWordSizeFor1Typo      *int                   `json:"min_word_size_for_1_typo,omitempty"`  // Optional: override index setting for minimum word size for 1 typo
+	MinWordSizeFor2Typos     *int                   `json:"min_word_size_for_2_typos,omitempty"` // Optional: override index setting for minimum word size for 2 typos
+}
+
+// MultiSearchRequest represents the JSON request for multi-search
+type MultiSearchRequest struct {
+	Queries  []NamedSearchRequest `json:"queries" binding:"required"`
+	Page     int                  `json:"page,omitempty"`
+	PageSize int                  `json:"page_size,omitempty"`
+}
+
+// NamedSearchRequest represents a single named search query in the request
+type NamedSearchRequest struct {
+	Name                     string                 `json:"name" binding:"required"`
+	Query                    string                 `json:"query" binding:"required"`
+	RestrictSearchableFields []string               `json:"restrict_searchable_fields,omitempty"`
+	RetrivableFields         []string               `json:"retrivable_fields,omitempty"`
+	Filters                  map[string]interface{} `json:"filters,omitempty"`
+	MinWordSizeFor1Typo      *int                   `json:"min_word_size_for_1_typo,omitempty"`
+	MinWordSizeFor2Typos     *int                   `json:"min_word_size_for_2_typos,omitempty"`
 }
 
 // SearchHandler handles search requests to an index.
 // Request Body: SearchRequest (similar to services.SearchQuery but adapted for JSON)
 func (api *API) SearchHandler(c *gin.Context) {
+	startTime := time.Now()
 	indexName := c.Param("indexName")
+
 	indexAccessor, err := api.engine.GetIndex(indexName)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
@@ -229,10 +300,14 @@ func (api *API) SearchHandler(c *gin.Context) {
 	}
 
 	searchQuery := services.SearchQuery{
-		QueryString: req.Query,
-		Filters:     req.Filters, // Direct pass-through for now
-		Page:        req.Page,
-		PageSize:    req.PageSize,
+		QueryString:              req.Query,
+		Filters:                  req.Filters, // Direct pass-through for now
+		Page:                     req.Page,
+		PageSize:                 req.PageSize,
+		RestrictSearchableFields: req.RestrictSearchableFields,
+		RetrivableFields:         req.RetrivableFields,
+		MinWordSizeFor1Typo:      req.MinWordSizeFor1Typo,
+		MinWordSizeFor2Typos:     req.MinWordSizeFor2Typos,
 	}
 
 	results, err := indexAccessor.Search(searchQuery)
@@ -241,7 +316,145 @@ func (api *API) SearchHandler(c *gin.Context) {
 		return
 	}
 
+	// Track analytics event
+	responseTime := time.Since(startTime)
+	searchType := api.determineSearchType(req)
+
+	event := model.SearchEvent{
+		IndexName:    indexName,
+		Query:        req.Query,
+		SearchType:   searchType,
+		ResponseTime: responseTime,
+		ResultCount:  results.Total,
+		Filters:      req.Filters,
+	}
+
+	// Track the event asynchronously to avoid slowing down the response
+	go func() {
+		if err := api.analytics.TrackSearchEvent(event); err != nil {
+			log.Printf("Warning: Failed to track search event: %v", err)
+		}
+	}()
+
 	c.JSON(http.StatusOK, results)
+}
+
+// MultiSearchHandler handles multi-query search requests to an index.
+// Request Body: MultiSearchRequest
+func (api *API) MultiSearchHandler(c *gin.Context) {
+	startTime := time.Now()
+	indexName := c.Param("indexName")
+
+	indexAccessor, err := api.engine.GetIndex(indexName)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
+		return
+	}
+
+	var req MultiSearchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid multi-search request body: " + err.Error()})
+		return
+	}
+
+	// Validate that we have at least one query
+	if len(req.Queries) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one query is required"})
+		return
+	}
+
+	// Validate query names are unique
+	queryNames := make(map[string]bool)
+	for _, namedQuery := range req.Queries {
+		if namedQuery.Name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "All queries must have a non-empty name"})
+			return
+		}
+		if queryNames[namedQuery.Name] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Query names must be unique: '" + namedQuery.Name + "' appears multiple times"})
+			return
+		}
+		queryNames[namedQuery.Name] = true
+	}
+
+	// Convert API request to service request
+	multiSearchQuery := services.MultiSearchQuery{
+		Page:     req.Page,
+		PageSize: req.PageSize,
+	}
+
+	// Convert named search requests
+	for _, namedReq := range req.Queries {
+		namedQuery := services.NamedSearchQuery{
+			Name:                     namedReq.Name,
+			Query:                    namedReq.Query,
+			RestrictSearchableFields: namedReq.RestrictSearchableFields,
+			RetrivableFields:         namedReq.RetrivableFields,
+			Filters:                  namedReq.Filters,
+			MinWordSizeFor1Typo:      namedReq.MinWordSizeFor1Typo,
+			MinWordSizeFor2Typos:     namedReq.MinWordSizeFor2Typos,
+		}
+		multiSearchQuery.Queries = append(multiSearchQuery.Queries, namedQuery)
+	}
+
+	results, err := indexAccessor.MultiSearch(multiSearchQuery)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error performing multi-search on index '" + indexName + "': " + err.Error()})
+		return
+	}
+
+	// Track analytics events for each individual query
+	responseTime := time.Since(startTime)
+	for queryName, result := range results.Results {
+		// Find the original request for this query to get the query string and filters
+		var originalQuery string
+		var queryFilters map[string]interface{}
+		for _, namedReq := range req.Queries {
+			if namedReq.Name == queryName {
+				originalQuery = namedReq.Query
+				queryFilters = namedReq.Filters
+				break
+			}
+		}
+
+		event := model.SearchEvent{
+			IndexName:    indexName,
+			Query:        originalQuery,
+			SearchType:   "multi_search",
+			ResponseTime: responseTime,
+			ResultCount:  result.Total,
+			Filters:      queryFilters,
+		}
+
+		// Track the event asynchronously
+		go func(e model.SearchEvent) {
+			if err := api.analytics.TrackSearchEvent(e); err != nil {
+				log.Printf("Warning: Failed to track search event: %v", err)
+			}
+		}(event)
+	}
+
+	c.JSON(http.StatusOK, results)
+}
+
+// determineSearchType determines the type of search based on the request
+func (api *API) determineSearchType(req SearchRequest) string {
+	if len(req.Filters) > 0 {
+		return "filtered"
+	}
+	if strings.Contains(req.Query, "*") || strings.Contains(req.Query, "?") {
+		return "wildcard"
+	}
+	if req.Query == "" {
+		return "filtered" // Empty query with filters
+	}
+
+	// Check if it might be fuzzy (simplified heuristic)
+	if len(strings.Fields(req.Query)) == 1 && len(req.Query) > 3 {
+		return "fuzzy_search"
+	}
+
+	return "exact_match"
 }
 
 // ListIndexesHandler lists all available indexes.
@@ -261,10 +474,19 @@ func (api *API) GetIndexHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, indexAccessor.Settings())
 }
 
-// DeleteIndexHandler removes an index.
+// DeleteIndexHandler handles deleting an index.
 func (api *API) DeleteIndexHandler(c *gin.Context) {
 	indexName := c.Param("indexName")
-	err := api.engine.DeleteIndex(indexName)
+
+	// Delete index asynchronously
+	var jobID string
+	var err error
+	if concreteEngine, ok := api.engine.(*engine.Engine); ok {
+		jobID, err = concreteEngine.DeleteIndexAsync(indexName)
+	} else {
+		err = api.engine.DeleteIndex(indexName)
+	}
+
 	if err != nil {
 		// Check if the error indicates the index was not found
 		if strings.Contains(err.Error(), "not found") {
@@ -275,14 +497,102 @@ func (api *API) DeleteIndexHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete index '" + indexName + "': " + err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Index '" + indexName + "' deleted successfully"})
+
+	if jobID != "" {
+		// Async response with job ID
+		c.JSON(http.StatusAccepted, gin.H{
+			"status":  "accepted",
+			"message": "Index deletion started for '" + indexName + "'",
+			"job_id":  jobID,
+		})
+	} else {
+		c.JSON(http.StatusOK, gin.H{"message": "Index '" + indexName + "' deleted successfully"})
+	}
+}
+
+// RenameIndexRequest defines the structure for renaming an index
+type RenameIndexRequest struct {
+	NewName string `json:"new_name" binding:"required"`
+}
+
+// RenameIndexHandler handles requests to rename an index
+func (api *API) RenameIndexHandler(c *gin.Context) {
+	oldName := c.Param("indexName")
+
+	var req RenameIndexRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
+		return
+	}
+
+	if req.NewName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "new_name is required and cannot be empty"})
+		return
+	}
+
+	// Validate new name
+	if strings.TrimSpace(req.NewName) != req.NewName {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "new_name cannot have leading or trailing whitespace"})
+		return
+	}
+
+	// Rename index asynchronously
+	var jobID string
+	var err error
+	if concreteEngine, ok := api.engine.(*engine.Engine); ok {
+		jobID, err = concreteEngine.RenameIndexAsync(oldName, req.NewName)
+	} else {
+		err = api.engine.RenameIndex(oldName, req.NewName)
+	}
+
+	if err != nil {
+		// Determine the appropriate HTTP status based on the error
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + oldName + "' not found"})
+			return
+		}
+		if strings.Contains(err.Error(), "already exists") {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		if strings.Contains(err.Error(), "same") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		// For other errors (file system errors, etc.), return internal server error
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to rename index: " + err.Error()})
+		return
+	}
+
+	if jobID != "" {
+		// Async response with job ID
+		c.JSON(http.StatusAccepted, gin.H{
+			"status":   "accepted",
+			"message":  fmt.Sprintf("Index rename started: '%s' -> '%s'", oldName, req.NewName),
+			"job_id":   jobID,
+			"old_name": oldName,
+			"new_name": req.NewName,
+		})
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"message":  "Index renamed successfully",
+			"old_name": oldName,
+			"new_name": req.NewName,
+		})
+	}
 }
 
 // IndexSettingsUpdate defines the structure for updating index settings
 type IndexSettingsUpdate struct {
-	FieldsWithoutPrefixSearch *[]string `json:"fields_without_prefix_search,omitempty"` // Use []string, not *[]string, to allow sending an empty list to clear
-	NoTypoToleranceFields     *[]string `json:"no_typo_tolerance_fields,omitempty"`     // Use []string to allow sending an empty list to clear
-	DistinctField             *string   `json:"distinct_field,omitempty"`               // Use pointer to distinguish between empty string and not provided
+	FieldsWithoutPrefixSearch *[]string                  `json:"fields_without_prefix_search,omitempty"` // Use []string, not *[]string, to allow sending an empty list to clear
+	NoTypoToleranceFields     *[]string                  `json:"no_typo_tolerance_fields,omitempty"`     // Use []string to allow sending an empty list to clear
+	NonTypoTolerantWords      *[]string                  `json:"non_typo_tolerant_words,omitempty"`      // Specific words that should never be typo-matched
+	DistinctField             *string                    `json:"distinct_field,omitempty"`               // Use pointer to distinguish between empty string and not provided
+	SearchableFields          *[]string                  `json:"searchable_fields,omitempty"`            // Fields that can be searched, in priority order
+	FilterableFields          *[]string                  `json:"filterable_fields,omitempty"`            // Fields that can be used in filters
+	RankingCriteria           *[]config.RankingCriterion `json:"ranking_criteria,omitempty"`             // Ranking criteria for search results
+	MinWordSizeFor1Typo       *int                       `json:"min_word_size_for_1_typo,omitempty"`     // Minimum word length to allow 1 typo
+	MinWordSizeFor2Typos      *int                       `json:"min_word_size_for_2_typos,omitempty"`    // Minimum word length to allow 2 typos
 }
 
 // UpdateIndexSettingsHandler handles requests to update index settings
@@ -302,9 +612,99 @@ func (api *API) UpdateIndexSettingsHandler(c *gin.Context) {
 		return
 	}
 
+	originalSettings := settings // Keep a copy to detect changes that require reindexing
 	updated := false
+	requiresReindexing := false
 
-	// Handle fields_without_prefix_search
+	// Handle searchable_fields (CORE SETTING - requires reindexing)
+	if fieldValue, keyExists := rawRequest["searchable_fields"]; keyExists {
+		if fieldValue == nil {
+			settings.SearchableFields = []string{}
+		} else if fieldSlice, isSlice := fieldValue.([]interface{}); isSlice {
+			stringSlice := make([]string, len(fieldSlice))
+			for i, v := range fieldSlice {
+				if str, isStr := v.(string); isStr {
+					stringSlice[i] = str
+				}
+			}
+			settings.SearchableFields = stringSlice
+		}
+		if !slicesEqual(originalSettings.SearchableFields, settings.SearchableFields) {
+			requiresReindexing = true
+		}
+		updated = true
+	}
+
+	// Handle filterable_fields (CORE SETTING - may require reindexing)
+	if fieldValue, keyExists := rawRequest["filterable_fields"]; keyExists {
+		if fieldValue == nil {
+			settings.FilterableFields = []string{}
+		} else if fieldSlice, isSlice := fieldValue.([]interface{}); isSlice {
+			stringSlice := make([]string, len(fieldSlice))
+			for i, v := range fieldSlice {
+				if str, isStr := v.(string); isStr {
+					stringSlice[i] = str
+				}
+			}
+			settings.FilterableFields = stringSlice
+		}
+		if !slicesEqual(originalSettings.FilterableFields, settings.FilterableFields) {
+			requiresReindexing = true
+		}
+		updated = true
+	}
+
+	// Handle ranking_criteria (CORE SETTING - affects search results)
+	if fieldValue, keyExists := rawRequest["ranking_criteria"]; keyExists {
+		if fieldValue == nil {
+			settings.RankingCriteria = []config.RankingCriterion{}
+		} else if criteriaSlice, isSlice := fieldValue.([]interface{}); isSlice {
+			rankingCriteria := make([]config.RankingCriterion, len(criteriaSlice))
+			for i, v := range criteriaSlice {
+				if criterionMap, isMap := v.(map[string]interface{}); isMap {
+					var criterion config.RankingCriterion
+					if field, hasField := criterionMap["field"].(string); hasField {
+						criterion.Field = field
+					}
+					if order, hasOrder := criterionMap["order"].(string); hasOrder {
+						criterion.Order = order
+					}
+					rankingCriteria[i] = criterion
+				}
+			}
+			settings.RankingCriteria = rankingCriteria
+		}
+		if !rankingCriteriaEqual(originalSettings.RankingCriteria, settings.RankingCriteria) {
+			requiresReindexing = true
+		}
+		updated = true
+	}
+
+	// Handle min_word_size_for_1_typo (CORE SETTING - requires reindexing)
+	if fieldValue, keyExists := rawRequest["min_word_size_for_1_typo"]; keyExists {
+		if num, isNum := fieldValue.(float64); isNum {
+			intVal := int(num)
+			if originalSettings.MinWordSizeFor1Typo != intVal {
+				requiresReindexing = true
+			}
+			settings.MinWordSizeFor1Typo = intVal
+		}
+		updated = true
+	}
+
+	// Handle min_word_size_for_2_typos (CORE SETTING - requires reindexing)
+	if fieldValue, keyExists := rawRequest["min_word_size_for_2_typos"]; keyExists {
+		if num, isNum := fieldValue.(float64); isNum {
+			intVal := int(num)
+			if originalSettings.MinWordSizeFor2Typos != intVal {
+				requiresReindexing = true
+			}
+			settings.MinWordSizeFor2Typos = intVal
+		}
+		updated = true
+	}
+
+	// Handle fields_without_prefix_search (field-level setting)
 	if fieldValue, keyExists := rawRequest["fields_without_prefix_search"]; keyExists {
 		if fieldValue == nil {
 			settings.FieldsWithoutPrefixSearch = []string{}
@@ -320,7 +720,7 @@ func (api *API) UpdateIndexSettingsHandler(c *gin.Context) {
 		updated = true
 	}
 
-	// Handle no_typo_tolerance_fields
+	// Handle no_typo_tolerance_fields (field-level setting)
 	if fieldValue, keyExists := rawRequest["no_typo_tolerance_fields"]; keyExists {
 		if fieldValue == nil {
 			settings.NoTypoToleranceFields = []string{}
@@ -336,7 +736,23 @@ func (api *API) UpdateIndexSettingsHandler(c *gin.Context) {
 		updated = true
 	}
 
-	// Handle distinct_field
+	// Handle non_typo_tolerant_words (word-level setting)
+	if fieldValue, keyExists := rawRequest["non_typo_tolerant_words"]; keyExists {
+		if fieldValue == nil {
+			settings.NonTypoTolerantWords = []string{}
+		} else if fieldSlice, isSlice := fieldValue.([]interface{}); isSlice {
+			stringSlice := make([]string, len(fieldSlice))
+			for i, v := range fieldSlice {
+				if str, isStr := v.(string); isStr {
+					stringSlice[i] = str
+				}
+			}
+			settings.NonTypoTolerantWords = stringSlice
+		}
+		updated = true
+	}
+
+	// Handle distinct_field (field-level setting)
 	if fieldValue, keyExists := rawRequest["distinct_field"]; keyExists {
 		if fieldValue == nil {
 			settings.DistinctField = ""
@@ -351,16 +767,69 @@ func (api *API) UpdateIndexSettingsHandler(c *gin.Context) {
 		return
 	}
 
-	err = api.engine.UpdateIndexSettings(indexName, settings)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update index settings: " + err.Error()})
+	// Validate field names to prevent conflicts with filter operators
+	if conflicts := settings.ValidateFieldNames(); len(conflicts) > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":     "Field name validation failed",
+			"conflicts": conflicts,
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Settings updated successfully for index '" + indexName + "'",
-		"warning": "You may need to reindex your documents for changes to FieldsWithoutPrefixSearch to take full effect.",
+	// Automatically determines if reindexing is needed
+	var jobID string
+	if engineWithAsyncReindex, ok := api.engine.(services.IndexManagerWithAsyncReindex); ok {
+		jobID, err = engineWithAsyncReindex.UpdateIndexSettingsWithAsyncReindex(indexName, settings)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start async settings update: " + err.Error()})
+			return
+		}
+	} else {
+		err = api.engine.UpdateIndexSettings(indexName, settings)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update index settings: " + err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message":   "Settings updated successfully for index '" + indexName + "'",
+			"reindexed": requiresReindexing,
+		})
+		return
+	}
+
+	// Return async response with job ID
+	c.JSON(http.StatusAccepted, gin.H{
+		"status":              "accepted",
+		"message":             "Settings update started for index '" + indexName + "' (search-time settings update)",
+		"job_id":              jobID,
+		"reindexing_required": requiresReindexing,
 	})
+}
+
+// Helper function to compare string slices
+func slicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// Helper function to compare ranking criteria slices
+func rankingCriteriaEqual(a, b []config.RankingCriterion) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Field != b[i].Field || a[i].Order != b[i].Order {
+			return false
+		}
+	}
+	return true
 }
 
 // HealthCheckHandler provides a simple health check endpoint
@@ -523,31 +992,113 @@ func (api *API) DeleteDocumentHandler(c *gin.Context) {
 	indexName := c.Param("indexName")
 	documentId := c.Param("documentId")
 
-	indexAccessor, err := api.engine.GetIndex(indexName)
+	_, err := api.engine.GetIndex(indexName)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
 		return
 	}
 
-	// Delete the document
-	err = indexAccessor.DeleteDocument(documentId)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Document '" + documentId + "' not found in index '" + indexName + "'"})
+	// Delete document asynchronously
+	var jobID string
+	if concreteEngine, ok := api.engine.(*engine.Engine); ok {
+		jobID, err = concreteEngine.DeleteDocumentAsync(indexName, documentId)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Document '" + documentId + "' not found in index '" + indexName + "'"})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start async document deletion: " + err.Error()})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete document '" + documentId + "' from index '" + indexName + "': " + err.Error()})
+
+		// Return job ID with 202 Accepted status
+		c.JSON(http.StatusAccepted, gin.H{
+			"status":      "accepted",
+			"message":     fmt.Sprintf("Document deletion started for document '%s' in index '%s'", documentId, indexName),
+			"job_id":      jobID,
+			"document_id": documentId,
+		})
+	} else {
+		indexAccessor, _ := api.engine.GetIndex(indexName)
+		err = indexAccessor.DeleteDocument(documentId)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Document '" + documentId + "' not found in index '" + indexName + "'"})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete document '" + documentId + "' from index '" + indexName + "': " + err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Document '" + documentId + "' deleted from index '" + indexName + "'"})
+	}
+}
+
+// GetAnalyticsHandler handles the request to get analytics data
+func (api *API) GetAnalyticsHandler(c *gin.Context) {
+	dashboard, err := api.analytics.GetDashboardData()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve analytics data: " + err.Error()})
 		return
 	}
 
-	// Persist the changes
-	if concreteEngine, ok := api.engine.(*engine.Engine); ok {
-		if err := concreteEngine.PersistIndexData(indexName); err != nil {
-			log.Printf("Warning: Failed to persist data for index '%s' after deleting document '%s': %v", indexName, documentId, err)
+	c.JSON(http.StatusOK, dashboard)
+}
+
+// GetJobHandler handles requests to get job status by ID
+func (api *API) GetJobHandler(c *gin.Context) {
+	jobID := c.Param("jobId")
+
+	if jobManager, ok := api.engine.(services.JobManager); ok {
+		job, err := jobManager.GetJob(jobID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found: " + err.Error()})
+			return
 		}
+
+		c.JSON(http.StatusOK, job)
 	} else {
-		log.Printf("Warning: Could not type assert IndexManager to Engine to persist data for index '%s'. Persistence skipped.", indexName)
+		c.JSON(http.StatusNotImplemented, gin.H{"error": "Job management not supported by this engine"})
+	}
+}
+
+// ListJobsHandler handles requests to list jobs for an index
+func (api *API) ListJobsHandler(c *gin.Context) {
+	indexName := c.Param("indexName")
+	statusParam := c.Query("status")
+
+	var statusFilter *model.JobStatus
+	if statusParam != "" {
+		status := model.JobStatus(statusParam)
+		statusFilter = &status
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Document '" + documentId + "' deleted from index '" + indexName + "'"})
+	if jobManager, ok := api.engine.(services.JobManager); ok {
+		jobs := jobManager.ListJobs(indexName, statusFilter)
+		c.JSON(http.StatusOK, gin.H{
+			"jobs":       jobs,
+			"index_name": indexName,
+			"total":      len(jobs),
+		})
+	} else {
+		c.JSON(http.StatusNotImplemented, gin.H{"error": "Job management not supported by this engine"})
+	}
+}
+
+// GetJobMetricsHandler handles requests to get job performance metrics
+func (api *API) GetJobMetricsHandler(c *gin.Context) {
+	if engineWithMetrics, ok := api.engine.(*engine.Engine); ok {
+		// Get metrics (already returns a copy without mutex)
+		metrics := engineWithMetrics.GetJobMetrics()
+
+		// Add computed metrics
+		response := gin.H{
+			"metrics":          metrics,
+			"success_rate":     engineWithMetrics.GetJobSuccessRate(),
+			"current_workload": engineWithMetrics.GetCurrentWorkload(),
+		}
+
+		c.JSON(http.StatusOK, response)
+	} else {
+		c.JSON(http.StatusNotImplemented, gin.H{"error": "Job metrics not supported by this engine"})
+	}
 }

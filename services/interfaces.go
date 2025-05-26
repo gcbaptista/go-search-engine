@@ -22,7 +22,7 @@ type HitResult struct {
 }
 
 type SearchResult struct {
-	Hits     []HitResult `json:"hits"` // Changed from []model.Document
+	Hits     []HitResult `json:"hits"`
 	Total    int         `json:"total"`
 	Page     int         `json:"page"`
 	PageSize int         `json:"page_size"`
@@ -31,10 +31,39 @@ type SearchResult struct {
 }
 
 type SearchQuery struct {
-	QueryString string
-	Filters     map[string]interface{} // e.g., {"genre": "Action", "year_gt": 2000}
-	Page        int
-	PageSize    int
+	QueryString              string
+	Filters                  map[string]interface{} // e.g., {"genre": "Action", "year_gt": 2000}
+	Page                     int
+	PageSize                 int
+	RestrictSearchableFields []string `json:"restrict_searchable_fields,omitempty"` // Optional: subset of searchable fields to search in
+	RetrivableFields         []string `json:"retrivable_fields,omitempty"`          // Optional: subset of document fields to return in results
+	MinWordSizeFor1Typo      *int     `json:"min_word_size_for_1_typo,omitempty"`   // Optional: override index setting for minimum word size for 1 typo
+	MinWordSizeFor2Typos     *int     `json:"min_word_size_for_2_typos,omitempty"`  // Optional: override index setting for minimum word size for 2 typos
+}
+
+// MultiSearchQuery represents a request to execute multiple named search queries
+type MultiSearchQuery struct {
+	Queries  []NamedSearchQuery `json:"queries"`
+	Page     int                `json:"page,omitempty"`
+	PageSize int                `json:"page_size,omitempty"`
+}
+
+// NamedSearchQuery represents a single named search query within a multi-search request
+type NamedSearchQuery struct {
+	Name                     string                 `json:"name"`
+	Query                    string                 `json:"query"`
+	RestrictSearchableFields []string               `json:"restrict_searchable_fields,omitempty"`
+	RetrivableFields         []string               `json:"retrivable_fields,omitempty"`
+	Filters                  map[string]interface{} `json:"filters,omitempty"`
+	MinWordSizeFor1Typo      *int                   `json:"min_word_size_for_1_typo,omitempty"`
+	MinWordSizeFor2Typos     *int                   `json:"min_word_size_for_2_typos,omitempty"`
+}
+
+// MultiSearchResult represents the response from a multi-search operation
+type MultiSearchResult struct {
+	Results          map[string]SearchResult `json:"results"`
+	TotalQueries     int                     `json:"total_queries"`
+	ProcessingTimeMs float64                 `json:"processing_time_ms"`
 }
 
 // Indexer defines operations for adding data to an index
@@ -49,19 +78,44 @@ type Searcher interface {
 	Search(query SearchQuery) (SearchResult, error)
 }
 
+// MultiSearcher defines operations for performing multiple queries in a single request
+type MultiSearcher interface {
+	MultiSearch(query MultiSearchQuery) (*MultiSearchResult, error)
+}
+
 // IndexManager manages the lifecycle of indices
 type IndexManager interface {
 	CreateIndex(settings config.IndexSettings) error
 	GetIndex(name string) (IndexAccessor, error) // IndexAccessor combines Indexer and Searcher
 	GetIndexSettings(name string) (config.IndexSettings, error)
 	UpdateIndexSettings(name string, settings config.IndexSettings) error
+	RenameIndex(oldName, newName string) error
 	DeleteIndex(name string) error
 	ListIndexes() []string
 	PersistIndexData(indexName string) error
 }
 
+// IndexManagerWithReindex extends IndexManager with reindexing capabilities for settings updates
+type IndexManagerWithReindex interface {
+	IndexManager
+	UpdateIndexSettingsWithReindex(name string, settings config.IndexSettings) error
+}
+
+// IndexManagerWithAsyncReindex extends IndexManager with async reindexing capabilities
+type IndexManagerWithAsyncReindex interface {
+	IndexManager
+	UpdateIndexSettingsWithAsyncReindex(name string, settings config.IndexSettings) (string, error) // Returns job ID
+}
+
+// JobManager defines operations for managing background jobs
+type JobManager interface {
+	GetJob(jobID string) (*model.Job, error)
+	ListJobs(indexName string, status *model.JobStatus) []*model.Job
+}
+
 type IndexAccessor interface {
 	Indexer
 	Searcher
+	MultiSearcher
 	Settings() config.IndexSettings
 }

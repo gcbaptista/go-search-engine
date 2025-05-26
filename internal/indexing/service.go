@@ -70,7 +70,7 @@ func (s *Service) AddDocuments(docs []model.Document) error {
 			}
 		}
 		if err := s.addSingleDocumentUnsafe(doc); err != nil {
-			// For now, return on first error. Consider collecting errors for partial success.
+			// Return on first error
 			return fmt.Errorf("failed to add document ID %s: %w", docIDForErrorReporting, err)
 		}
 	}

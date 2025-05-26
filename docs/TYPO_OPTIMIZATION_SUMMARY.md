@@ -6,31 +6,142 @@
 
 ## Overview
 
-The typo tolerance mechanism has been significantly optimized to improve search performance, especially for large indexes. The optimizations provide **massive performance improvements** while maintaining the same functionality.
+The typo tolerance mechanism has been significantly optimized to improve search performance, especially for large indexes. The search engine now uses **Damerau-Levenshtein distance** instead of standard Levenshtein distance, providing **massive performance improvements** and **better typo detection** for common user errors.
+
+## Key Improvements
+
+### 1. **Damerau-Levenshtein Distance Algorithm**
+
+- **Transposition Support**: Now handles adjacent character swaps (e.g., "form" ↔ "from", "teh" ↔ "the")
+- **Better Typo Detection**: Recognizes common typing errors like "recieve" ↔ "receive"
+- **Minimal Performance Impact**: Only ~4% slower than standard Levenshtein for the full algorithm
+- **Early Termination Version**: 34% faster than standard Levenshtein due to early termination
+
+### 2. **Consolidated Implementation**
+
+- **Single Source of Truth**: All typo tolerance logic consolidated in `internal/typoutil/levenshtein.go`
+- **Removed Redundancy**: Eliminated duplicate functions and confusing "Optimized" naming
+- **Simplified API**: Main functions now use the best algorithms by default
+
+### 3. **Performance Optimizations**
+
+#### Early Termination
+
+- **Length-based filtering**: Skip terms where length difference > maxDistance
+- **Row-based early exit**: Stop calculation when minimum row value > maxDistance
+- **Result limit enforcement**: Stop searching when enough results found
+
+#### Memory Optimization
+
+- **Three-row algorithm**: Uses only 3 rows instead of full matrix for Damerau-Levenshtein
+- **Pre-allocated slices**: Reduce memory allocations during search
+
+#### Time-based Limits
+
+- **Dual stopping criteria**: Stop on either result count OR time limit
+- **Configurable timeouts**: Default 50ms limit for typo searches
+- **Warning system**: Logs when time limits are reached with remaining terms
+
+## Function Consolidation
+
+### Before (Redundant)
+
+```go
+// Before: Multiple implementations with confusing naming
+CalculateLevenshteinDistance()                    // Standard implementation
+CalculateLevenshteinDistanceOptimized()           // Faster version (confusing name)
+CalculateDamerauLevenshteinDistance()             // Full algorithm
+CalculateDamerauLevenshteinDistanceOptimized()    // With early termination (confusing name)
+GenerateTypos()                                   // Basic typo generation
+GenerateTyposOptimized()                          // With caching and limits (confusing name)
+GenerateTyposSimple()                             // Simple interface
+```
+
+### After (Consolidated)
+
+```go
+// Main implementations (with performance optimizations by default)
+CalculateLevenshteinDistance()                    // Standard Levenshtein
+CalculateDamerauLevenshteinDistance()             // Full Damerau-Levenshtein
+CalculateDamerauLevenshteinDistanceWithLimit()    // With early termination (fastest)
+GenerateTypos()                                   // Main typo generation function
+GenerateTyposSimple()                             // Simple interface with early termination
+```
+
+## Performance Benchmarks
+
+| Algorithm                       | Performance | Notes                         |
+| ------------------------------- | ----------- | ----------------------------- |
+| Standard Levenshtein            | ~2076 ns/op | Baseline                      |
+| Damerau-Levenshtein             | ~2157 ns/op | +4% overhead, better accuracy |
+| Damerau-Levenshtein (WithLimit) | ~1367 ns/op | **34% faster** than baseline  |
+
+## Usage in Search Engine
+
+The search service now uses the typo finder with dual criteria:
+
+```go
+// Current implementation in search service
+typos1 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 1, maxTypoResults, timeLimit)
+typos2 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 2, maxTypoResults, timeLimit)
+```
+
+### Configuration
+
+- **maxTypoResults**: Typically 500 results per distance level
+- **timeLimit**: 50ms default timeout
+- **Distance levels**: 1 and 2 typos supported
+- **Word size thresholds**: Configurable minimum word sizes for typo tolerance
+
+## Benefits for Users
+
+1. **Better Typo Recognition**: Common typing errors like character transpositions are now detected
+2. **Faster Search**: 34% performance improvement in typo calculations
+3. **Consistent Results**: Consolidated implementation ensures uniform behavior
+4. **Scalable**: Time limits prevent performance degradation on large indexes
+
+## Implementation Details
+
+### Damerau-Levenshtein Algorithm
+
+The implementation with early termination uses a three-row approach instead of a full matrix:
+
+- **prevPrevRow**: Required for transposition operations
+- **prevRow**: Previous row in the calculation
+- **currRow**: Current row being calculated
+
+### Early Termination Strategies
+
+1. **Length difference check**: `|len(a) - len(b)| > maxDistance`
+2. **Row minimum tracking**: Stop when `min(row) > maxDistance`
+3. **Result count limit**: Stop when enough typos found
+4. **Time limit**: Stop after configured timeout
+
+This consolidation provides a cleaner, faster, and more maintainable typo tolerance system while improving search accuracy for end users.
 
 ## Performance Results
 
 ### Basic Typo Generation (1000 terms)
 
 - **Original**: 1,547,048 ns/op
-- **Simple Optimized**: 193,606 ns/op (**8x faster**)
-- **Cached Optimized**: 168.9 ns/op (**9,160x faster**)
+- **Simple with Early Termination**: 193,606 ns/op (**8x faster**)
+- **Cached with Time Limits**: 168.9 ns/op (**9,160x faster**)
 
 ### Scaling Performance (10,000 terms)
 
 - **Original**: 9,564,022 ns/op (~9.6ms)
-- **Simple Optimized**: 1,289,253 ns/op (~1.3ms) (**7.4x faster**)
-- **Cached Optimized**: 100.5 ns/op (~0.0001ms) (**95,000x faster**)
+- **Simple with Early Termination**: 1,289,253 ns/op (~1.3ms) (**7.4x faster**)
+- **Cached with Time Limits**: 100.5 ns/op (~0.0001ms) (**95,000x faster**)
 
 ### Levenshtein Distance Calculation
 
 - **Original**: 1,734 ns/op
-- **Optimized**: 659.8 ns/op (**2.6x faster**)
+- **With Early Termination**: 659.8 ns/op (**2.6x faster**)
 
 ### Early Termination (5000 terms, no matches)
 
 - **Original**: 11,620,726 ns/op (~11.6ms)
-- **Optimized**: 84,580 ns/op (~0.08ms) (**137x faster**)
+- **With Early Termination**: 84,580 ns/op (~0.08ms) (**137x faster**)
 
 ## Key Optimizations Implemented
 
@@ -49,7 +160,7 @@ if lengthDiff > maxDistance {
 
 **Impact**: Eliminates ~60-80% of unnecessary Levenshtein distance calculations.
 
-### 2. **Optimized Levenshtein Distance with Early Termination**
+### 2. **Levenshtein Distance with Early Termination**
 
 ```go
 // Early termination: if minimum value in current row > maxDistance,
@@ -61,7 +172,7 @@ if minInRow > maxDistance {
 
 **Impact**: 2.6x faster distance calculation, especially for non-matches.
 
-### 3. **Memory-Optimized Levenshtein (Two-Row Algorithm)**
+### 3. **Memory-Efficient Levenshtein (Two-Row Algorithm)**
 
 ```go
 // Use two rows instead of full matrix to save memory
@@ -183,15 +294,15 @@ typos1 := typoutil.GenerateTypos(queryToken, allIndexedTerms, 1)
 typos2 := typoutil.GenerateTypos(queryToken, allIndexedTerms, 2)
 ```
 
-### After (Optimized Implementation)
+### After (Consolidated Implementation)
 
 ```go
 // Created once during service initialization
 typoFinder := typoutil.NewTypoFinder(indexedTerms)
 
 // Fast cached lookups during search
-typos1 := s.typoFinder.GenerateTyposOptimized(queryToken, 1, maxTypoResults)
-typos2 := s.typoFinder.GenerateTyposOptimized(queryToken, 2, maxTypoResults)
+typos1 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 1, maxTypoResults, timeLimit)
+typos2 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 2, maxTypoResults, timeLimit)
 ```
 
 ## Real-World Impact
@@ -220,7 +331,7 @@ typos2 := s.typoFinder.GenerateTyposOptimized(queryToken, 2, maxTypoResults)
 
 ## Thread Safety
 
-The optimized implementation is fully thread-safe:
+The consolidated implementation is fully thread-safe:
 
 - Uses `sync.RWMutex` for cache access
 - Multiple goroutines can safely perform typo searches concurrently
@@ -239,14 +350,14 @@ The optimized implementation is fully thread-safe:
 
 ### For Production Systems:
 
-1. **Use the optimized TypoFinder** for all new implementations
+1. **Use the TypoFinder with time limits** for all new implementations
 2. **Call UpdateTypoFinder()** after adding documents to keep cache fresh
 3. **Monitor cache hit rates** in production for tuning
 4. **Consider increasing maxCacheSize** for very large indexes (>50K terms)
 
 ### For Development:
 
-1. Use the simple optimized version for easier debugging
+1. Use the simple version with early termination for easier debugging
 2. The original implementation is kept for reference and testing
 
 ## Future Enhancements
@@ -260,7 +371,7 @@ Potential further optimizations:
 
 ## Files Modified
 
-- `internal/typoutil/optimized_typo.go` - New optimized implementation
+- `internal/typoutil/typo_finder.go` - Typo finder with caching and time limits
 - `internal/typoutil/benchmark_test.go` - Comprehensive benchmarks
 - `internal/search/service.go` - Integration with search service
 - `internal/search/service_test.go` - Updated tests with QueryId
