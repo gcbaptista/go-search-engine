@@ -7,14 +7,20 @@ guides, optimization details, and development resources.
 
 ### 🚀 **Core Documentation**
 
-| Document                                                        | Description                                                                          | Status     |
-|-----------------------------------------------------------------|--------------------------------------------------------------------------------------|------------|
-| [**Async API Operations**](./ASYNC_API.md)                      | Complete guide to asynchronous operations and job management                         | ✅ Complete |
-| [**Search Features**](./SEARCH_FEATURES.md)                     | Advanced search capabilities including field restriction and typo tolerance          | ✅ Complete |
-| [**Search-Time Settings**](./SEARCH_TIME_SETTINGS.md)           | Understanding instant vs reindexing settings for production optimization             | ✅ Complete |
-| [**Typo Optimization Summary**](./TYPO_OPTIMIZATION_SUMMARY.md) | Complete performance optimization guide for typo tolerance with 95,000x improvements | ✅ Complete |
-| [**Progress Tracker**](./PROGRESS.md)                           | Development milestones and implementation status                                     | 🔄 Active  |
-| [**Field Naming Guide**](./FIELD_NAMING_GUIDE.md)               | Standardized field naming conventions across the codebase                            | ✅ Complete |
+| Document                                              | Description                                                                  | Status      |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------- | ----------- |
+| [**Async API Operations**](./ASYNC_API.md)            | Complete guide to asynchronous operations and job management                 | ✅ Complete |
+| [**Search Features**](./SEARCH_FEATURES.md)           | Advanced search capabilities including field restriction and typo tolerance  | ✅ Complete |
+| [**Search-Time Settings**](./SEARCH_TIME_SETTINGS.md) | Understanding instant vs reindexing settings for production optimization     | ✅ Complete |
+| [**Typo Tolerance System**](./TYPO_TOLERANCE.md)      | Complete guide to typo tolerance features, configuration, and best practices | ✅ Complete |
+| [**Progress Tracker**](./PROGRESS.md)                 | Development milestones and implementation status                             | 🔄 Active   |
+| [**Field Naming Guide**](./FIELD_NAMING_GUIDE.md)     | Standardized field naming conventions across the codebase                    | ✅ Complete |
+
+### 📜 **Historical Documentation**
+
+| Document                                                  | Description                                                                    | Status     |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------- |
+| [**Typo Migration History**](./TYPO_MIGRATION_HISTORY.md) | Historical record of typo tolerance optimizations and performance improvements | 📚 Archive |
 
 ---
 
@@ -24,7 +30,7 @@ guides, optimization details, and development resources.
 
 1. **Start Here**: [Project README](../README.md) - Main project overview and setup
 2. **API Operations**: [Async API Operations](./ASYNC_API.md) - Understanding async operations and job management
-3. **Performance**: [Typo Optimization Summary](./TYPO_OPTIMIZATION_SUMMARY.md) - Critical performance optimizations
+3. **Typo Tolerance**: [Typo Tolerance System](./TYPO_TOLERANCE.md) - Complete typo tolerance guide
 4. **Standards**: [Field Naming Guide](./FIELD_NAMING_GUIDE.md) - Code conventions
 
 ### For Users
@@ -39,18 +45,18 @@ guides, optimization details, and development resources.
 
 ### Performance Optimizations
 
-- **[Typo Tolerance Performance](./TYPO_OPTIMIZATION_SUMMARY.md)**
-    - 95,000x performance improvements
-    - Dual-criteria stopping (500 tokens OR 50ms)
-    - Intelligent caching system
-    - Memory optimization techniques
+- **[Typo Tolerance System](./TYPO_TOLERANCE.md)**
+  - Damerau-Levenshtein distance algorithm
+  - Smart redundant match prevention
+  - Performance optimization (95,000x improvements)
+  - Configuration and best practices
 
 ### Architecture & Design
 
 - **[Field Naming Conventions](./FIELD_NAMING_GUIDE.md)**
-    - Consistent naming patterns
-    - API field standards
-    - Database schema guidelines
+  - Consistent naming patterns
+  - API field standards
+  - Database schema guidelines
 
 ---
 
@@ -82,7 +88,7 @@ See [**Progress Tracker**](./PROGRESS.md) for detailed milestones.
 ### API & Integration
 
 | Resource             | Location                               | Purpose                   |
-|----------------------|----------------------------------------|---------------------------|
+| -------------------- | -------------------------------------- | ------------------------- |
 | **API Spec**         | [`../api-spec.yaml`](../api-spec.yaml) | OpenAPI 3.0 specification |
 | **TypeScript Types** | [`../types.ts`](../types.ts)           | Frontend type definitions |
 | **Go Modules**       | [`../go.mod`](../go.mod)               | Dependency management     |

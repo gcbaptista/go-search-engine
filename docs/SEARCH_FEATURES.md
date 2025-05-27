@@ -294,7 +294,7 @@ Remove duplicate results based on a specific field value.
 
 ## 📖 Related Documentation
 
+- **[Typo Tolerance System](./TYPO_TOLERANCE.md)** - Complete guide to typo tolerance features and configuration
 - **[Search-Time vs Core Settings](./SEARCH_TIME_SETTINGS.md)** - Understanding settings that affect search behavior
-- **[Typo Optimization Summary](./TYPO_OPTIMIZATION_SUMMARY.md)** - Technical details about typo tolerance performance
 - **[Async API](./ASYNC_API.md)** - Managing long-running operations
 - **[Analytics](./ANALYTICS.md)** - Monitoring search performance and usage

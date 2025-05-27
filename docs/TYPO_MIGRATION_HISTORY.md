@@ -2,6 +2,10 @@
 
 ---
 
+# Typo Tolerance Migration History
+
+> **📋 Note**: This document contains historical information about typo tolerance optimizations and migrations. For current typo tolerance documentation, see [TYPO_TOLERANCE.md](./TYPO_TOLERANCE.md).
+
 # Typo Tolerance Performance Optimizations
 
 ## Overview
