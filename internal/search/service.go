@@ -251,7 +251,7 @@ func (s *Service) Search(query services.SearchQuery) (services.SearchResult, err
 									docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = []index.PostingEntry{typoEntry}
 									typoTermsMatchedByQueryToken[queryToken][entry.DocID] = []string{typoTerm}
 									bestTypoDistanceByQueryToken[queryToken][entry.DocID] = 1
-								} else if 1 == currentBestDistance {
+								} else if currentBestDistance == 1 {
 									// Same distance, add to existing matches
 									docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = append(docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID], typoEntry)
 									typoTermsMatchedByQueryToken[queryToken][entry.DocID] = append(typoTermsMatchedByQueryToken[queryToken][entry.DocID], typoTerm)
@@ -313,7 +313,7 @@ func (s *Service) Search(query services.SearchQuery) (services.SearchResult, err
 									docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = []index.PostingEntry{typoEntry}
 									typoTermsMatchedByQueryToken[queryToken][entry.DocID] = []string{typoTerm}
 									bestTypoDistanceByQueryToken[queryToken][entry.DocID] = 2
-								} else if 2 == currentBestDistance {
+								} else if currentBestDistance == 2 {
 									// Same distance, add to existing matches
 									docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = append(docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID], typoEntry)
 									typoTermsMatchedByQueryToken[queryToken][entry.DocID] = append(typoTermsMatchedByQueryToken[queryToken][entry.DocID], typoTerm)
