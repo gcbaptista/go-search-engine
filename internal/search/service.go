@@ -149,12 +149,16 @@ func (s *Service) Search(query services.SearchQuery) (services.SearchResult, err
 	// Track which typo term was actually matched for each original query token and docID
 	// Map: originalQueryToken -> docID -> []actualTypoTerm
 	typoTermsMatchedByQueryToken := make(map[string]map[uint32][]string)
+	// Track the best typo distance for each query token and document to avoid redundant worse matches
+	// Map: originalQueryToken -> docID -> bestTypoDistance
+	bestTypoDistanceByQueryToken := make(map[string]map[uint32]int)
 
 	// First pass: collect exact matches for all query tokens
 	for _, queryToken := range originalQueryTokens {
 		docMatchesByQueryToken[queryToken] = make(map[uint32][]index.PostingEntry)
 		docMatchesByOriginalQueryTokenForTypos[queryToken] = make(map[uint32][]index.PostingEntry)
 		typoTermsMatchedByQueryToken[queryToken] = make(map[uint32][]string)
+		bestTypoDistanceByQueryToken[queryToken] = make(map[uint32]int)
 
 		// 1. Exact matches for the queryToken
 		if postingList, found := s.invertedIndex.Index[queryToken]; found {
@@ -166,28 +170,7 @@ func (s *Service) Search(query services.SearchQuery) (services.SearchResult, err
 		}
 	}
 
-	// Find documents that have exact matches for ALL query tokens
-	docsWithAllExactMatches := make(map[uint32]bool)
-	if len(originalQueryTokens) > 0 {
-		// Start with documents that match the first token
-		for docID := range docMatchesByQueryToken[originalQueryTokens[0]] {
-			docsWithAllExactMatches[docID] = true
-		}
-
-		// Intersect with documents that match each subsequent token
-		for i := 1; i < len(originalQueryTokens); i++ {
-			token := originalQueryTokens[i]
-			newDocsWithAllExactMatches := make(map[uint32]bool)
-			for docID := range docsWithAllExactMatches {
-				if _, hasMatch := docMatchesByQueryToken[token][docID]; hasMatch {
-					newDocsWithAllExactMatches[docID] = true
-				}
-			}
-			docsWithAllExactMatches = newDocsWithAllExactMatches
-		}
-	}
-
-	// Second pass: apply typo tolerance only for documents that don't have all exact matches
+	// Second pass: apply typo tolerance (skip if document already has exact match for the specific token)
 	for _, queryToken := range originalQueryTokens {
 
 		// 2. Typo matches for the queryToken
@@ -249,14 +232,30 @@ func (s *Service) Search(query services.SearchQuery) (services.SearchResult, err
 					if postingList, found := s.invertedIndex.Index[typoTerm]; found {
 						for _, entry := range postingList {
 							if isFieldAllowed(entry.FieldName) {
-								// Skip typo matching for documents that already have exact matches for all query tokens
-								if docsWithAllExactMatches[entry.DocID] {
+								// Skip typo matching for documents that already have exact matches for this specific query token
+								if _, hasExactMatch := docMatchesByQueryToken[queryToken][entry.DocID]; hasExactMatch {
 									continue
 								}
+
+								// Check if we already have a better (lower distance) typo match for this query token in this document
+								currentBestDistance, hasPreviousTypo := bestTypoDistanceByQueryToken[queryToken][entry.DocID]
+								if hasPreviousTypo && currentBestDistance <= 1 {
+									continue // Skip this 1-typo match since we already have an equal or better match
+								}
+
 								typoEntry := entry
 								typoEntry.Score *= 0.8 // Penalize typo scores slightly
-								docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = append(docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID], typoEntry)
-								typoTermsMatchedByQueryToken[queryToken][entry.DocID] = append(typoTermsMatchedByQueryToken[queryToken][entry.DocID], typoTerm)
+
+								// If this is a better match, replace previous typo matches for this document and query token
+								if !hasPreviousTypo || 1 < currentBestDistance {
+									docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = []index.PostingEntry{typoEntry}
+									typoTermsMatchedByQueryToken[queryToken][entry.DocID] = []string{typoTerm}
+									bestTypoDistanceByQueryToken[queryToken][entry.DocID] = 1
+								} else if currentBestDistance == 1 {
+									// Same distance, add to existing matches
+									docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = append(docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID], typoEntry)
+									typoTermsMatchedByQueryToken[queryToken][entry.DocID] = append(typoTermsMatchedByQueryToken[queryToken][entry.DocID], typoTerm)
+								}
 							}
 						}
 					}
@@ -295,15 +294,30 @@ func (s *Service) Search(query services.SearchQuery) (services.SearchResult, err
 					if postingList, found := s.invertedIndex.Index[typoTerm]; found {
 						for _, entry := range postingList {
 							if isFieldAllowed(entry.FieldName) {
-								// Skip typo matching for documents that already have exact matches for all query tokens
-								if docsWithAllExactMatches[entry.DocID] {
+								// Skip typo matching for documents that already have exact matches for this specific query token
+								if _, hasExactMatch := docMatchesByQueryToken[queryToken][entry.DocID]; hasExactMatch {
 									continue
+								}
+
+								// Check if we already have a better (lower distance) typo match for this query token in this document
+								currentBestDistance, hasPreviousTypo := bestTypoDistanceByQueryToken[queryToken][entry.DocID]
+								if hasPreviousTypo && currentBestDistance <= 2 {
+									continue // Skip this 2-typo match since we already have an equal or better match
 								}
 
 								typoEntry := entry
 								typoEntry.Score *= 0.6 // Penalize 2-typo matches more than 1-typo
-								docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = append(docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID], typoEntry)
-								typoTermsMatchedByQueryToken[queryToken][entry.DocID] = append(typoTermsMatchedByQueryToken[queryToken][entry.DocID], typoTerm)
+
+								// If this is a better match, replace previous typo matches for this document and query token
+								if !hasPreviousTypo || 2 < currentBestDistance {
+									docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = []index.PostingEntry{typoEntry}
+									typoTermsMatchedByQueryToken[queryToken][entry.DocID] = []string{typoTerm}
+									bestTypoDistanceByQueryToken[queryToken][entry.DocID] = 2
+								} else if currentBestDistance == 2 {
+									// Same distance, add to existing matches
+									docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID] = append(docMatchesByOriginalQueryTokenForTypos[queryToken][entry.DocID], typoEntry)
+									typoTermsMatchedByQueryToken[queryToken][entry.DocID] = append(typoTermsMatchedByQueryToken[queryToken][entry.DocID], typoTerm)
+								}
 							}
 						}
 					}

@@ -20,14 +20,22 @@ relevance of documents that match specific criteria, giving you fine-grained con
 {
   "query": "action movie",
   "filters": {
-    "genre": "Action",
-    "is_premium": true,
-    "year_gte": 2020
-  },
-  "filter_scoring": {
-    "genre": 1.0,
-    "is_premium": 2.5,
-    "year_gte": 0.5
+    "operator": "AND",
+    "filters": [
+      {
+        "field": "genre",
+        "operator": "_exact",
+        "value": "Action",
+        "score": 1.0
+      },
+      {
+        "field": "is_premium",
+        "operator": "_exact",
+        "value": true,
+        "score": 2.5
+      },
+      { "field": "year", "operator": "_gte", "value": 2020, "score": 0.5 }
+    ]
   }
 }
 ```
@@ -36,7 +44,7 @@ In this example:
 
 - Documents matching `genre: Action` get +1.0 filter score
 - Documents matching `is_premium: true` get +2.5 filter score
-- Documents matching `year_gte: 2020` get +0.5 filter score
+- Documents matching `year >= 2020` get +0.5 filter score
 - A document matching all three filters would have a total filter score of 4.0
 
 ## Ranking with Filter Scores
@@ -73,16 +81,23 @@ This ranking configuration:
 {
   "query": "thriller",
   "filters": {
-    "genre_contains": "Thriller",
-    "rating_gte": 7.0,
-    "year_gte": 2015,
-    "is_premium": true
-  },
-  "filter_scoring": {
-    "genre_contains": 2.0,
-    "rating_gte": 1.5,
-    "year_gte": 0.8,
-    "is_premium": 3.0
+    "operator": "AND",
+    "filters": [
+      {
+        "field": "genre",
+        "operator": "_contains",
+        "value": "Thriller",
+        "score": 2.0
+      },
+      { "field": "rating", "operator": "_gte", "value": 7.0, "score": 1.5 },
+      { "field": "year", "operator": "_gte", "value": 2015, "score": 0.8 },
+      {
+        "field": "is_premium",
+        "operator": "_exact",
+        "value": true,
+        "score": 3.0
+      }
+    ]
   }
 }
 ```
@@ -131,9 +146,12 @@ The filter score is included in the hit info:
 Boost premium or featured content:
 
 ```json
-"filter_scoring": {
-  "is_premium": 5.0,
-  "is_featured": 3.0
+"filters": {
+  "operator": "OR",
+  "filters": [
+    { "field": "is_premium", "operator": "_exact", "value": true, "score": 5.0 },
+    { "field": "is_featured", "operator": "_exact", "value": true, "score": 3.0 }
+  ]
 }
 ```
 
@@ -142,9 +160,12 @@ Boost premium or featured content:
 Favor newer content:
 
 ```json
-"filter_scoring": {
-  "year_gte": 1.0,
-  "created_recently": 2.0
+"filters": {
+  "operator": "OR",
+  "filters": [
+    { "field": "year", "operator": "_gte", "value": 2020, "score": 1.0 },
+    { "field": "created_recently", "operator": "_exact", "value": true, "score": 2.0 }
+  ]
 }
 ```
 
@@ -153,10 +174,13 @@ Favor newer content:
 Prioritize high-quality content:
 
 ```json
-"filter_scoring": {
-  "rating_gte": 1.5,
-  "verified": 2.0,
-  "editor_choice": 3.0
+"filters": {
+  "operator": "OR",
+  "filters": [
+    { "field": "rating", "operator": "_gte", "value": 8.0, "score": 1.5 },
+    { "field": "verified", "operator": "_exact", "value": true, "score": 2.0 },
+    { "field": "editor_choice", "operator": "_exact", "value": true, "score": 3.0 }
+  ]
 }
 ```
 
@@ -165,20 +189,22 @@ Prioritize high-quality content:
 Boost local content:
 
 ```json
-"filter_scoring": {
-  "country": 2.0,
-  "region": 1.0,
-  "city": 3.0
+"filters": {
+  "operator": "OR",
+  "filters": [
+    { "field": "country", "operator": "_exact", "value": "US", "score": 2.0 },
+    { "field": "region", "operator": "_exact", "value": "California", "score": 1.0 },
+    { "field": "city", "operator": "_exact", "value": "San Francisco", "score": 3.0 }
+  ]
 }
 ```
 
 ## Important Notes
 
-1. **Filter Requirement**: Only filters that are actually applied (in the `filters` object) can contribute to the filter
-   score
-2. **All-or-Nothing**: If a document doesn't match ALL specified filters, it gets a filter score of 0.0
-3. **Additive Scoring**: Filter scores are summed for all matching filters
-4. **Optional Scoring**: You can apply filters without scoring by omitting them from `filter_scoring`
+1. **Filter Requirement**: Only filters that are actually applied (in the `filters` object) can contribute to the filter score
+2. **Score Integration**: Filter scores are specified directly in each filter condition using the `score` property
+3. **Logical Operators**: Use `AND` for all-or-nothing scoring, `OR` for additive scoring across different conditions
+4. **Optional Scoring**: You can apply filters without scoring by omitting the `score` property from filter conditions
 
 ## Multi-Search Support
 
@@ -190,14 +216,27 @@ Filter scoring works with multi-search queries:
     {
       "name": "premium_search",
       "query": "action",
-      "filters": { "is_premium": true },
-      "filter_scoring": { "is_premium": 5.0 }
+      "filters": {
+        "operator": "AND",
+        "filters": [
+          {
+            "field": "is_premium",
+            "operator": "_exact",
+            "value": true,
+            "score": 5.0
+          }
+        ]
+      }
     },
     {
       "name": "regular_search",
       "query": "action",
-      "filters": { "year_gte": 2020 },
-      "filter_scoring": { "year_gte": 1.0 }
+      "filters": {
+        "operator": "AND",
+        "filters": [
+          { "field": "year", "operator": "_gte", "value": 2020, "score": 1.0 }
+        ]
+      }
     }
   ]
 }

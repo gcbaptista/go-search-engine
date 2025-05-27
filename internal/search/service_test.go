@@ -538,39 +538,30 @@ func TestSearchWithDeduplication(t *testing.T) {
 }
 
 func TestFieldNameValidation(t *testing.T) {
-	t.Run("validate field names with operator conflicts", func(t *testing.T) {
+	t.Run("validate field names with empty names", func(t *testing.T) {
 		settings := &config.IndexSettings{
 			Name:             "test_index",
-			SearchableFields: []string{"title", "description_contains", "user_exact"}, // These have conflicts
-			FilterableFields: []string{"year", "rating_gte", "status_ne"},             // These have conflicts
-			DistinctField:    "uuid_exact",                                            // This has a conflict
+			SearchableFields: []string{"title", "", "  "}, // Empty and whitespace-only names
+			FilterableFields: []string{"year", "rating"},
 		}
 
 		conflicts := settings.ValidateFieldNames()
 
-		expectedConflicts := []string{
-			"Field 'description_contains' ends with operator '_contains' which may cause parsing conflicts",
-			"Field 'user_exact' ends with operator '_exact' which may cause parsing conflicts",
-			"Field 'rating_gte' ends with operator '_gte' which may cause parsing conflicts",
-			"Field 'status_ne' ends with operator '_ne' which may cause parsing conflicts",
-			"Field 'uuid_exact' ends with operator '_exact' which may cause parsing conflicts",
+		if len(conflicts) == 0 {
+			t.Error("Expected conflicts for empty field names, got none")
 		}
 
-		if len(conflicts) != len(expectedConflicts) {
-			t.Errorf("Expected %d conflicts, got %d: %v", len(expectedConflicts), len(conflicts), conflicts)
-		}
-
-		for i, expected := range expectedConflicts {
-			if i < len(conflicts) && conflicts[i] != expected {
-				t.Errorf("Expected conflict %d to be %q, got %q", i, expected, conflicts[i])
-			}
+		// Should have conflicts for empty and whitespace-only field names
+		expectedConflictCount := 2 // One for empty string, one for whitespace-only
+		if len(conflicts) != expectedConflictCount {
+			t.Errorf("Expected %d conflicts, got %d: %v", expectedConflictCount, len(conflicts), conflicts)
 		}
 	})
 
 	t.Run("validate field names without conflicts", func(t *testing.T) {
 		settings := &config.IndexSettings{
 			Name:             "test_index",
-			SearchableFields: []string{"title", "description", "content"},
+			SearchableFields: []string{"title", "description", "content", "field_exact", "rating_gte"}, // Field names ending with operators are now allowed
 			FilterableFields: []string{"year", "rating", "popularity", "release_date"},
 			DistinctField:    "uuid",
 		}

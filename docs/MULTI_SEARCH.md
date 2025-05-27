@@ -36,13 +36,13 @@ POST /{indexName}/_multi_search
 ### Request Parameters
 
 - **queries** (required): Array of named search queries
-    - **name** (required): Unique identifier for the query
-    - **query** (required): Search query string
-    - **restrict_searchable_fields** (optional): Subset of searchable fields to search in
-    - **retrievable_fields** (optional): Subset of document fields to return
-    - **filters** (optional): Query-specific filters
-    - **min_word_size_for_1_typo** (optional): Override for 1-typo tolerance
-    - **min_word_size_for_2_typos** (optional): Override for 2-typo tolerance
+  - **name** (required): Unique identifier for the query
+  - **query** (required): Search query string
+  - **restrict_searchable_fields** (optional): Subset of searchable fields to search in
+  - **retrievable_fields** (optional): Subset of document fields to return
+  - **filters** (optional): Query-specific filters
+  - **min_word_size_for_1_typo** (optional): Override for 1-typo tolerance
+  - **min_word_size_for_2_typos** (optional): Override for 2-typo tolerance
 - **page** (optional): Page number for all queries (default: 1)
 - **page_size** (optional): Results per page for all queries (default: 10)
 
@@ -100,8 +100,11 @@ Search multiple categories simultaneously:
       "query": "action",
       "restrict_searchable_fields": ["genres"],
       "filters": {
-        "year_gte": 2010,
-        "rating_gte": 7.0
+        "operator": "AND",
+        "filters": [
+          { "field": "year", "operator": "_gte", "value": 2010 },
+          { "field": "rating", "operator": "_gte", "value": 7.0 }
+        ]
       }
     },
     {
@@ -109,8 +112,11 @@ Search multiple categories simultaneously:
       "query": "comedy",
       "restrict_searchable_fields": ["genres"],
       "filters": {
-        "year_gte": 2010,
-        "rating_gte": 7.0
+        "operator": "AND",
+        "filters": [
+          { "field": "year", "operator": "_gte", "value": 2010 },
+          { "field": "rating", "operator": "_gte", "value": 7.0 }
+        ]
       }
     }
   ]
@@ -151,8 +157,11 @@ Apply different filters to different searches:
       "name": "recent_popular",
       "query": "thriller",
       "filters": {
-        "year_gte": 2020,
-        "rating_gte": 8.0
+        "operator": "AND",
+        "filters": [
+          { "field": "year", "operator": "_gte", "value": 2020 },
+          { "field": "rating", "operator": "_gte", "value": 8.0 }
+        ]
       },
       "retrievable_fields": ["title", "year", "rating"]
     },
@@ -160,8 +169,11 @@ Apply different filters to different searches:
       "name": "classic_popular",
       "query": "thriller",
       "filters": {
-        "year_lt": 2000,
-        "rating_gte": 8.5
+        "operator": "AND",
+        "filters": [
+          { "field": "year", "operator": "_lt", "value": 2000 },
+          { "field": "rating", "operator": "_gte", "value": 8.5 }
+        ]
       },
       "retrievable_fields": ["title", "year", "rating", "director"]
     }

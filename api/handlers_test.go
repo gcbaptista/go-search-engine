@@ -478,15 +478,7 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 			expectedStatus:    http.StatusAccepted,
 			expectedReindexed: &[]bool{true}[0],
 		},
-		{
-			name: "invalid field name (contains filter operator suffix)",
-			requestBody: map[string]interface{}{
-				"searchable_fields": []string{"field_exact", "field_gt"},
-			},
-			expectedStatus: http.StatusBadRequest,
-			expectError:    true,
-			errorContains:  "Field name validation failed",
-		},
+
 		{
 			name:           "empty request body",
 			requestBody:    map[string]interface{}{},

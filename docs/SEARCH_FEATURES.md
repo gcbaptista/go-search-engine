@@ -6,7 +6,7 @@
 
 ## Overview
 
-The Go Search Engine provides advanced search capabilities with flexible field targeting, typo tolerance, filtering, and
+The Go Search Engine provides search capabilities with flexible field targeting, typo tolerance, filtering, and
 ranking. This document covers the key search features available through the API.
 
 ## 🎯 Restrict Searchable Fields
@@ -71,7 +71,12 @@ curl -X POST http://localhost:8080/indexes/movies/search \
 {
   "query": "action movie",
   "restrict_searchable_fields": ["title", "description"],
-  "filters": { "year_gte": 2000 },
+  "filters": {
+    "operator": "AND",
+    "filters": [
+      { "field": "year", "operator": "_gte", "value": 2000 }
+    ]
+  },
   "page": 1,
   "page_size": 10
 }
@@ -89,12 +94,14 @@ curl -X POST http://localhost:8080/indexes/movies/search \
 
 ### Overview
 
-Advanced typo tolerance using Damerau-Levenshtein distance algorithm that handles:
+Typo tolerance using Damerau-Levenshtein distance algorithm that handles:
 
 - Character substitutions (e.g., "cat" → "bat")
 - Character insertions (e.g., "cat" → "cart")
 - Character deletions (e.g., "cart" → "cat")
 - Character transpositions (e.g., "form" → "from")
+
+**Smart Match Prevention**: Automatically prevents redundant typo matches by showing only the best quality typo match per query token per document, eliminating confusing duplicate results.
 
 ### Configuration
 
@@ -153,32 +160,35 @@ curl -X POST http://localhost:8080/indexes/products/search \
 
 ### Supported Filter Operators
 
-| Operator          | Description            | Example                                   |
-|-------------------|------------------------|-------------------------------------------|
-| `exact`           | Exact match            | `"category_exact": "electronics"`         |
-| `ne`              | Not equal              | `"status_ne": "inactive"`                 |
-| `gt`              | Greater than           | `"price_gt": 100`                         |
-| `gte`             | Greater than or equal  | `"year_gte": 2020`                        |
-| `lt`              | Less than              | `"rating_lt": 5.0`                        |
-| `lte`             | Less than or equal     | `"price_lte": 500`                        |
-| `contains`        | Contains substring     | `"description_contains": "wireless"`      |
-| `ncontains`       | Does not contain       | `"title_ncontains": "refurbished"`        |
-| `contains_any_of` | Contains any of values | `"tags_contains_any_of": ["new", "sale"]` |
+| Operator           | Description            | Example                                                                       |
+| ------------------ | ---------------------- | ----------------------------------------------------------------------------- |
+| `_exact` (default) | Exact match            | `{"field": "category", "operator": "_exact", "value": "electronics"}`         |
+| `_ne`              | Not equal              | `{"field": "status", "operator": "_ne", "value": "inactive"}`                 |
+| `_gt`              | Greater than           | `{"field": "price", "operator": "_gt", "value": 100}`                         |
+| `_gte`             | Greater than or equal  | `{"field": "year", "operator": "_gte", "value": 2020}`                        |
+| `_lt`              | Less than              | `{"field": "rating", "operator": "_lt", "value": 5.0}`                        |
+| `_lte`             | Less than or equal     | `{"field": "price", "operator": "_lte", "value": 500}`                        |
+| `_contains`        | Contains substring     | `{"field": "description", "operator": "_contains", "value": "wireless"}`      |
+| `_ncontains`       | Does not contain       | `{"field": "title", "operator": "_ncontains", "value": "refurbished"}`        |
+| `_contains_any_of` | Contains any of values | `{"field": "tags", "operator": "_contains_any_of", "value": ["new", "sale"]}` |
 
 ### Usage Examples
 
 ```bash
-# Multiple filters
+# Multiple filters with AND logic
 curl -X POST http://localhost:8080/indexes/products/search \
   -H "Content-Type: application/json" \
   -d '{
     "query": "laptop",
     "filters": {
-      "price_gte": 500,
-      "price_lte": 2000,
-      "category_exact": "electronics",
-      "rating_gt": 4.0,
-      "tags_contains_any_of": ["gaming", "business"]
+      "operator": "AND",
+      "filters": [
+        { "field": "price", "operator": "_gte", "value": 500 },
+        { "field": "price", "operator": "_lte", "value": 2000 },
+        { "field": "category", "operator": "_exact", "value": "electronics" },
+        { "field": "rating", "operator": "_gt", "value": 4.0 },
+        { "field": "tags", "operator": "_contains_any_of", "value": ["gaming", "business"] }
+      ]
     }
   }'
 ```
@@ -282,7 +292,7 @@ Remove duplicate results based on a specific field value.
 
 - Use exact matches for categorical data
 - Combine multiple filters for complex queries
-- Consider field naming to avoid operator conflicts
+- Use descriptive field names for better maintainability
 
 ### Performance
 
@@ -292,7 +302,7 @@ Remove duplicate results based on a specific field value.
 
 ## 📖 Related Documentation
 
+- **[Typo Tolerance System](./TYPO_TOLERANCE.md)** - Complete guide to typo tolerance features and configuration
 - **[Search-Time vs Core Settings](./SEARCH_TIME_SETTINGS.md)** - Understanding settings that affect search behavior
-- **[Typo Optimization Summary](./TYPO_OPTIMIZATION_SUMMARY.md)** - Technical details about typo tolerance performance
 - **[Async API](./ASYNC_API.md)** - Managing long-running operations
 - **[Analytics](./ANALYTICS.md)** - Monitoring search performance and usage

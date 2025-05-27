@@ -110,3 +110,11 @@ func (i *IndexInstance) Settings() config.IndexSettings {
 func (i *IndexInstance) SetSearcher(searcher *search.Service) {
 	i.searcher = searcher
 }
+
+// BulkReindex delegates to the underlying Indexer service for bulk reindexing operations.
+func (i *IndexInstance) BulkReindex(config indexing.BulkIndexingConfig) error {
+	if i.indexer == nil {
+		return fmt.Errorf("indexer service not initialized for index '%s'", i.settings.Name)
+	}
+	return i.indexer.BulkReindex(config)
+}

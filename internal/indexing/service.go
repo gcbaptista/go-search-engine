@@ -54,8 +54,20 @@ func NewService(invertedIndex *index.InvertedIndex, documentStore *store.Documen
 
 // AddDocuments adds a batch of documents to the index.
 // This satisfies the services.Indexer interface.
+// For large batches (>100 documents), it automatically uses bulk indexing for better performance.
 func (s *Service) AddDocuments(docs []model.Document) error {
-	// Process documents in micro-batches to minimize lock contention and allow search operations to interleave
+	// Use bulk indexing for large batches
+	if len(docs) > 100 {
+		config := DefaultBulkIndexingConfig()
+		// Reduce batch size for smaller operations to maintain responsiveness
+		config.BatchSize = 500
+		config.WorkerCount = 2 // Use fewer workers to avoid overwhelming the system
+
+		bulkIndexer := NewBulkIndexer(s, config)
+		return bulkIndexer.BulkAddDocuments(docs)
+	}
+
+	// Use original micro-batch approach for small batches to maintain low latency
 	const microBatchSize = 10 // Very small batches to minimize lock hold time
 
 	for i := 0; i < len(docs); i += microBatchSize {
