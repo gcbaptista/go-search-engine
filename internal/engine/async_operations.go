@@ -142,7 +142,7 @@ func (e *Engine) AddDocumentsAsync(indexName string, docs []model.Document) (str
 }
 
 // executeAddDocumentsJob executes the add documents job.
-func (e *Engine) executeAddDocumentsJob(_ context.Context, indexName string, docs []model.Document, jobID string) error {
+func (e *Engine) executeAddDocumentsJob(ctx context.Context, indexName string, docs []model.Document, jobID string) error {
 	e.mu.RLock()
 	instance, exists := e.indexes[indexName]
 	e.mu.RUnlock()
@@ -154,13 +154,39 @@ func (e *Engine) executeAddDocumentsJob(_ context.Context, indexName string, doc
 	// Update progress
 	e.jobManager.UpdateJobProgress(jobID, 0, len(docs), "Starting document addition")
 
-	// Add documents
-	if err := instance.AddDocuments(docs); err != nil {
-		return fmt.Errorf("failed to add documents to index '%s': %w", indexName, err)
+	// Process documents in chunks with progress updates and cancellation support
+	const chunkSize = 100
+	totalProcessed := 0
+
+	for i := 0; i < len(docs); i += chunkSize {
+		// Check for cancellation
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("job cancelled: %w", ctx.Err())
+		default:
+		}
+
+		end := i + chunkSize
+		if end > len(docs) {
+			end = len(docs)
+		}
+
+		chunk := docs[i:end]
+
+		// Add chunk of documents
+		if err := instance.AddDocuments(chunk); err != nil {
+			return fmt.Errorf("failed to add document chunk %d-%d to index '%s': %w", i, end-1, indexName, err)
+		}
+
+		totalProcessed += len(chunk)
+
+		// Update progress
+		progressMsg := fmt.Sprintf("Processed %d/%d documents", totalProcessed, len(docs))
+		e.jobManager.UpdateJobProgress(jobID, totalProcessed, len(docs), progressMsg)
 	}
 
 	// Update progress
-	e.jobManager.UpdateJobProgress(jobID, len(docs), len(docs), "Documents added successfully")
+	e.jobManager.UpdateJobProgress(jobID, len(docs), len(docs), "Documents added, persisting to disk...")
 
 	// Persist the updated index
 	e.mu.RLock()

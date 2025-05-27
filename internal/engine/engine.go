@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"runtime"
 	"sync"
 
 	"github.com/gcbaptista/go-search-engine/config"
@@ -21,10 +22,20 @@ type Engine struct {
 
 // NewEngine creates a new search engine orchestrator.
 func NewEngine(dataDir string) *Engine {
+	// Calculate optimal worker count based on CPU cores
+	// Use 2x CPU cores for I/O bound operations, with minimum of 4 and maximum of 16
+	maxWorkers := runtime.NumCPU() * 2
+	if maxWorkers < 4 {
+		maxWorkers = 4
+	}
+	if maxWorkers > 16 {
+		maxWorkers = 16
+	}
+
 	eng := &Engine{
 		indexes:    make(map[string]*IndexInstance),
 		dataDir:    dataDir,
-		jobManager: jobs.NewManager(2), // Allow max 2 concurrent reindexing jobs
+		jobManager: jobs.NewManager(maxWorkers),
 	}
 	eng.jobManager.Start()
 	eng.loadIndexesFromDisk()

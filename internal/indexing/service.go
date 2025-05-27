@@ -3,6 +3,7 @@ package indexing
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"sort"
 	"strings"
@@ -54,7 +55,34 @@ func NewService(invertedIndex *index.InvertedIndex, documentStore *store.Documen
 // AddDocuments adds a batch of documents to the index.
 // This satisfies the services.Indexer interface.
 func (s *Service) AddDocuments(docs []model.Document) error {
-	// Acquire locks at the beginning of the batch operation
+	// Process documents in micro-batches to minimize lock contention and allow search operations to interleave
+	const microBatchSize = 10 // Very small batches to minimize lock hold time
+
+	for i := 0; i < len(docs); i += microBatchSize {
+		end := i + microBatchSize
+		if end > len(docs) {
+			end = len(docs)
+		}
+
+		microBatch := docs[i:end]
+		if err := s.addDocumentMicroBatch(microBatch); err != nil {
+			return fmt.Errorf("failed to add document micro-batch starting at index %d: %w", i, err)
+		}
+
+		// Yield to allow search operations to proceed between micro-batches
+		// This prevents search starvation during large indexing operations
+		if i+microBatchSize < len(docs) {
+			// Small delay to allow pending read operations to acquire locks
+			// This is a cooperative scheduling approach
+			time.Sleep(1 * time.Millisecond)
+		}
+	}
+	return nil
+}
+
+// addDocumentMicroBatch processes a very small batch of documents with minimal lock time
+func (s *Service) addDocumentMicroBatch(docs []model.Document) error {
+	// Acquire locks for the micro-batch operation
 	s.documentStore.Mu.Lock()
 	s.invertedIndex.Mu.Lock()
 	defer s.documentStore.Mu.Unlock()

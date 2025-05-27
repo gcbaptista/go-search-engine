@@ -23,6 +23,10 @@ func NewAPI(engine services.IndexManager) *API {
 
 // SetupRoutes defines all the API routes for the search engine.
 func SetupRoutes(router *gin.Engine, engine services.IndexManager) {
+	// Add middleware
+	router.Use(CORSMiddleware())
+	router.Use(RequestSizeLimitMiddleware(10 << 20)) // 10 MB limit
+
 	apiHandler := NewAPI(engine)
 
 	// Health check route
