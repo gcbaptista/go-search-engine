@@ -1,6 +1,6 @@
 # Go Search Engine
 
-A high-performance, full-text search engine built in Go with advanced features including typo tolerance, filtering,
+A high-performance, full-text search engine built in Go with typo tolerance, filtering,
 ranking, and prefix search capabilities.
 
 ## 🚀 Key Features
@@ -23,7 +23,7 @@ ranking, and prefix search capabilities.
 | --------------------------------------------------------- | ------------------------------------- |
 | [🚀 **Getting Started**](#quick-start)                    | Installation and basic usage (below)  |
 | [⚙️ **Full Async API**](./docs/ASYNC_API.md)              | Complete async operations guide       |
-| [⚡ **Typo Tolerance**](./docs/TYPO_TOLERANCE.md)         | Advanced typo tolerance system        |
+| [⚡ **Typo Tolerance**](./docs/TYPO_TOLERANCE.md)         | Typo tolerance system                 |
 | [🎯 **Analytics Guide**](./docs/ANALYTICS.md)             | Analytics and dashboard documentation |
 | [🔧 **Filter Expressions**](./docs/FILTER_EXPRESSIONS.md) | Advanced boolean filtering            |
 | [🔍 **Search Features**](./docs/SEARCH_FEATURES.md)       | Advanced search capabilities          |
@@ -522,9 +522,9 @@ This project is licensed under the MIT License.
 - [ ] Additional data format support (JSON, XML, CSV)
 - [ ] Machine learning-based ranking improvements
 
-## ✨ Advanced Typo Tolerance
+## ✨ Typo Tolerance
 
-The search engine uses **Damerau-Levenshtein distance** for comprehensive typo tolerance:
+The search engine uses **Damerau-Levenshtein distance** for typo tolerance:
 
 - **Transposition support**: Handles adjacent character swaps
 - **Better user experience**: Catches common typing mistakes

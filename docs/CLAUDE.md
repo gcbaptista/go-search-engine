@@ -6,7 +6,7 @@
 
 ## Project Overview
 
-**Go Search Engine** is a high-performance, full-text search engine built in Go with advanced features including typo
+**Go Search Engine** is a high-performance, full-text search engine built in Go with typo
 tolerance, filtering, ranking, and prefix search capabilities. The project implements a modular, RESTful architecture
 designed for scalability and maintainability.
 
@@ -423,7 +423,7 @@ git commit -m "feat: add fuzzy search functionality
 ## Additional Resources
 
 - **[Complete Documentation](./README.md)** - All project documentation
-- **[Typo Tolerance System](./TYPO_TOLERANCE.md)** - Advanced typo tolerance features
+- **[Typo Tolerance System](./TYPO_TOLERANCE.md)** - Typo tolerance features
 - **[Analytics Dashboard](./ANALYTICS.md)** - Search analytics and monitoring
 - **[Filter Expressions](./FILTER_EXPRESSIONS.md)** - Advanced boolean filtering capabilities
 - **[Multi-Search API](./MULTI_SEARCH.md)** - Parallel search capabilities

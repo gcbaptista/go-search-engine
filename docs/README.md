@@ -10,7 +10,7 @@ guides, optimization details, and development resources.
 | Document                                              | Description                                                                  | Status      |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------- | ----------- |
 | [**Async API Operations**](./ASYNC_API.md)            | Complete guide to asynchronous operations and job management                 | ✅ Complete |
-| [**Search Features**](./SEARCH_FEATURES.md)           | Advanced search capabilities including field restriction and typo tolerance  | ✅ Complete |
+| [**Search Features**](./SEARCH_FEATURES.md)           | Search capabilities including field restriction and typo tolerance           | ✅ Complete |
 | [**Search-Time Settings**](./SEARCH_TIME_SETTINGS.md) | Understanding instant vs reindexing settings for production optimization     | ✅ Complete |
 | [**Typo Tolerance System**](./TYPO_TOLERANCE.md)      | Complete guide to typo tolerance features, configuration, and best practices | ✅ Complete |
 | [**Multi-Search API**](./MULTI_SEARCH.md)             | Parallel search execution and advanced query capabilities                    | ✅ Complete |
@@ -60,7 +60,7 @@ guides, optimization details, and development resources.
 
 - ✅ **Core Search Engine**: Fully implemented with high performance
 - ✅ **Async API Operations**: Complete job management system for all writing operations
-- ✅ **Advanced Search Features**: Field restriction, typo tolerance, filtering, and ranking
+- ✅ **Search Features**: Field restriction, typo tolerance, filtering, and ranking
 - ✅ **Typo Tolerance**: Advanced with dual-criteria system and search-time updates
 - ✅ **Query ID Tracking**: UUID-based query tracking for analytics
 - ✅ **Analytics API**: Complete analytics data endpoints
@@ -95,7 +95,7 @@ go-search-engine/
 ├── api/               # 🌐 REST API handlers
 ├── internal/          # 🔒 Internal packages
 │   ├── search/        # 🔍 Search engine core
-│   ├── typoutil/      # ⚡ Advanced typo tolerance with search-time updates
+│   ├── typoutil/      # ⚡ Typo tolerance with search-time updates
 │   ├── indexing/      # 📇 Document indexing
 │   └── tokenizer/     # 🔤 Text processing
 ├── cmd/               # 🚀 Main application

@@ -6,7 +6,7 @@
 
 ## Overview
 
-The Go Search Engine provides advanced search capabilities with flexible field targeting, typo tolerance, filtering, and
+The Go Search Engine provides search capabilities with flexible field targeting, typo tolerance, filtering, and
 ranking. This document covers the key search features available through the API.
 
 ## 🎯 Restrict Searchable Fields
@@ -94,7 +94,7 @@ curl -X POST http://localhost:8080/indexes/movies/search \
 
 ### Overview
 
-Advanced typo tolerance using Damerau-Levenshtein distance algorithm that handles:
+Typo tolerance using Damerau-Levenshtein distance algorithm that handles:
 
 - Character substitutions (e.g., "cat" → "bat")
 - Character insertions (e.g., "cat" → "cart")

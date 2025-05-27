@@ -6,7 +6,7 @@
 
 ## Overview
 
-The Go Search Engine features an advanced typo tolerance system that automatically corrects common typing errors and misspellings in search queries. The system uses the **Damerau-Levenshtein distance algorithm** to detect and match variations of words, providing a seamless search experience even when users make mistakes.
+The Go Search Engine features a typo tolerance system that automatically corrects common typing errors and misspellings in search queries. The system uses the **Damerau-Levenshtein distance algorithm** to detect and match variations of words, providing a seamless search experience even when users make mistakes.
 
 ## How It Works
 
