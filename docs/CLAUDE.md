@@ -24,7 +24,7 @@ designed for scalability and maintainability.
 
 ### Primary Technologies
 
-- **Language**: Go 1.24.2+
+- **Language**: Go 1.23.0+
 - **Web Framework**: Gin (v1.10.0)
 - **API Documentation**: OpenAPI 3.0 specification
 - **Testing**: Go's built-in testing framework
@@ -305,7 +305,7 @@ go test -bench=. ./internal/typoutil
 
 ### Prerequisites
 
-- **Go 1.24.2 or later**
+- **Go 1.23.0 or later**
 - **Git** for version control
 - **curl** for API testing (optional)
 
@@ -389,7 +389,7 @@ git commit -m "feat: add fuzzy search functionality
 
 - **Public APIs**: Must have complete documentation
 - **Examples**: Include usage examples for complex features
-- **Field naming**: Follow the [Field Naming Guide](./FIELD_NAMING_GUIDE.md)
+- **Field naming**: Use clear, descriptive field names as outlined in the Field Naming Guidelines section above
 - **API changes**: Update OpenAPI specification in `api-spec.yaml`
 - **Performance**: Document optimization decisions
 
@@ -397,7 +397,7 @@ git commit -m "feat: add fuzzy search functionality
 
 - **Benchmark new algorithms** especially in search and indexing
 - **Profile memory usage** for large document sets
-- **Consider typo tolerance performance** (see [Typo Optimization Guide](./TYPO_OPTIMIZATION_SUMMARY.md))
+- **Consider typo tolerance performance** (see [Typo Tolerance System](./TYPO_TOLERANCE.md))
 - **Test with realistic data sizes**
 
 ### Security Guidelines
@@ -423,10 +423,10 @@ git commit -m "feat: add fuzzy search functionality
 ## Additional Resources
 
 - **[Complete Documentation](./README.md)** - All project documentation
-- **[Performance Guide](./TYPO_OPTIMIZATION_SUMMARY.md)** - Optimization details
-- **[Dashboard Guide](./DASHBOARD_GUIDE.md)** - Web interface documentation
-- **[Field Naming Guide](./FIELD_NAMING_GUIDE.md)** - Critical naming conventions
-- **[Progress Tracker](./PROGRESS.md)** - Development milestones
+- **[Typo Tolerance System](./TYPO_TOLERANCE.md)** - Advanced typo tolerance features
+- **[Analytics Dashboard](./ANALYTICS.md)** - Search analytics and monitoring
+- **[Filter Expressions](./FILTER_EXPRESSIONS.md)** - Advanced boolean filtering capabilities
+- **[Multi-Search API](./MULTI_SEARCH.md)** - Parallel search capabilities
 - **[API Specification](../api-spec.yaml)** - Complete OpenAPI documentation
 
 For questions or support, please open an issue on

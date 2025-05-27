@@ -19,16 +19,16 @@ ranking, and prefix search capabilities.
 
 **📖 [Complete Documentation](./docs/)** - Comprehensive guides, optimization details, and development resources
 
-| Quick Links                                                     | Description                           |
-| --------------------------------------------------------------- | ------------------------------------- |
-| [🚀 **Getting Started**](#quick-start)                          | Installation and basic usage (below)  |
-| [⚙️ **Full Async API**](./docs/ASYNC_API.md)                    | Complete async operations guide       |
-| [⚡ **Performance Guide**](./docs/TYPO_OPTIMIZATION_SUMMARY.md) | 95,000x typo tolerance optimizations  |
-| [🎯 **Analytics Guide**](./docs/ANALYTICS.md)                   | Analytics and dashboard documentation |
-| [🔧 **Field Naming**](./docs/FIELD_NAMING_GUIDE.md)             | Code conventions and standards        |
-| [🔍 **Search Features**](./docs/SEARCH_FEATURES.md)             | Advanced search capabilities          |
-| [🔧 **API Reference**](./api-spec.yaml)                         | Complete OpenAPI 3.0 specification    |
-| [📖 **Development Guide**](./docs/CLAUDE.md)                    | Coding standards and conventions      |
+| Quick Links                                               | Description                           |
+| --------------------------------------------------------- | ------------------------------------- |
+| [🚀 **Getting Started**](#quick-start)                    | Installation and basic usage (below)  |
+| [⚙️ **Full Async API**](./docs/ASYNC_API.md)              | Complete async operations guide       |
+| [⚡ **Typo Tolerance**](./docs/TYPO_TOLERANCE.md)         | Advanced typo tolerance system        |
+| [🎯 **Analytics Guide**](./docs/ANALYTICS.md)             | Analytics and dashboard documentation |
+| [🔧 **Filter Expressions**](./docs/FILTER_EXPRESSIONS.md) | Advanced boolean filtering            |
+| [🔍 **Search Features**](./docs/SEARCH_FEATURES.md)       | Advanced search capabilities          |
+| [🔧 **API Reference**](./api-spec.yaml)                   | Complete OpenAPI 3.0 specification    |
+| [📖 **Development Guide**](./docs/CLAUDE.md)              | Coding standards and conventions      |
 
 ## Features
 
@@ -70,7 +70,7 @@ The search engine follows a clean, modular architecture:
 
 ### Prerequisites
 
-- Go 1.24.2 or later
+- Go 1.23.0 or later
 - Git
 
 ### Installation
@@ -167,8 +167,11 @@ curl -X POST http://localhost:8080/indexes/movies/_search \
   -d '{
     "query": "dark knight",
     "filters": {
-      "year_gte": 2000,
-      "rating_gt": 8.0
+      "operator": "AND",
+      "filters": [
+        {"field": "year", "operator": "_gte", "value": 2000},
+        {"field": "rating", "operator": "_gt", "value": 8.0}
+      ]
     },
     "page": 1,
     "page_size": 10
@@ -278,11 +281,22 @@ curl http://localhost:8080/jobs/job_12345
 {
   "query": "search terms",
   "filters": {
-    "field_name": "exact_value",
-    "numeric_field_gte": 100,
-    "date_field_lt": "2023-01-01T00:00:00Z",
-    "array_field_contains": "value",
-    "array_field_contains_any_of": ["value1", "value2"]
+    "operator": "AND",
+    "filters": [
+      { "field": "field_name", "operator": "_exact", "value": "exact_value" },
+      { "field": "numeric_field", "operator": "_gte", "value": 100 },
+      {
+        "field": "date_field",
+        "operator": "_lt",
+        "value": "2023-01-01T00:00:00Z"
+      },
+      { "field": "array_field", "operator": "_contains", "value": "value" },
+      {
+        "field": "array_field",
+        "operator": "_contains_any_of",
+        "value": ["value1", "value2"]
+      }
+    ]
   },
   "page": 1,
   "page_size": 10
@@ -291,11 +305,11 @@ curl http://localhost:8080/jobs/job_12345
 
 ### Filter Operators
 
-- **Exact match**: `"field": "value"`
+- **Exact match**: `_exact` (default)
 - **Numeric comparisons**: `_gt`, `_gte`, `_lt`, `_lte`, `_ne`
-- **String operations**: `_contains`, `_not_contains`
+- **String operations**: `_contains`, `_ncontains`
 - **Array operations**: `_contains`, `_contains_any_of`
-- **Boolean**: `_ne` (not equal)
+- **Not equal**: `_ne`
 
 ## Configuration
 

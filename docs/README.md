@@ -13,8 +13,8 @@ guides, optimization details, and development resources.
 | [**Search Features**](./SEARCH_FEATURES.md)           | Advanced search capabilities including field restriction and typo tolerance  | ✅ Complete |
 | [**Search-Time Settings**](./SEARCH_TIME_SETTINGS.md) | Understanding instant vs reindexing settings for production optimization     | ✅ Complete |
 | [**Typo Tolerance System**](./TYPO_TOLERANCE.md)      | Complete guide to typo tolerance features, configuration, and best practices | ✅ Complete |
-| [**Progress Tracker**](./PROGRESS.md)                 | Development milestones and implementation status                             | 🔄 Active   |
-| [**Field Naming Guide**](./FIELD_NAMING_GUIDE.md)     | Standardized field naming conventions across the codebase                    | ✅ Complete |
+| [**Multi-Search API**](./MULTI_SEARCH.md)             | Parallel search execution and advanced query capabilities                    | ✅ Complete |
+| [**Filter Expressions**](./FILTER_EXPRESSIONS.md)     | Advanced boolean filtering with AND/OR logic                                 | ✅ Complete |
 
 ---
 
@@ -25,13 +25,13 @@ guides, optimization details, and development resources.
 1. **Start Here**: [Project README](../README.md) - Main project overview and setup
 2. **API Operations**: [Async API Operations](./ASYNC_API.md) - Understanding async operations and job management
 3. **Typo Tolerance**: [Typo Tolerance System](./TYPO_TOLERANCE.md) - Complete typo tolerance guide
-4. **Standards**: [Field Naming Guide](./FIELD_NAMING_GUIDE.md) - Code conventions
+4. **Advanced Features**: [Multi-Search API](./MULTI_SEARCH.md) - Parallel search capabilities
 
 ### For Users
 
 1. **Search Features**: [Search Features](./SEARCH_FEATURES.md) - Advanced search capabilities and field targeting
 2. **API**: [API Specification](../api-spec.yaml) - REST API documentation
-3. **Types**: [TypeScript Types](../types.ts) - Frontend type definitions
+3. **Analytics**: [Analytics Dashboard](./ANALYTICS.md) - Search analytics and monitoring
 
 ---
 
@@ -47,10 +47,10 @@ guides, optimization details, and development resources.
 
 ### Architecture & Design
 
-- **[Field Naming Conventions](./FIELD_NAMING_GUIDE.md)**
-  - Consistent naming patterns
-  - API field standards
-  - Database schema guidelines
+- **[Filter Expressions](./FILTER_EXPRESSIONS.md)**
+  - Advanced boolean filtering with AND/OR logic
+  - Complex query composition
+  - Performance optimization strategies
 
 ---
 
@@ -63,7 +63,7 @@ guides, optimization details, and development resources.
 - ✅ **Advanced Search Features**: Field restriction, typo tolerance, filtering, and ranking
 - ✅ **Typo Tolerance**: Advanced with dual-criteria system and search-time updates
 - ✅ **Query ID Tracking**: UUID-based query tracking for analytics
-- ✅ **Web Dashboard**: Complete user interface
+- ✅ **Analytics API**: Complete analytics data endpoints
 - ✅ **REST API**: Full API implementation
 
 ### Performance Metrics
@@ -73,7 +73,7 @@ guides, optimization details, and development resources.
 - **Memory Usage**: ~100KB cache footprint
 - **Concurrent Safety**: Full thread-safe operations
 
-See [**Progress Tracker**](./PROGRESS.md) for detailed milestones.
+See [**Analytics Dashboard**](./ANALYTICS.md) for performance monitoring.
 
 ---
 
@@ -81,11 +81,11 @@ See [**Progress Tracker**](./PROGRESS.md) for detailed milestones.
 
 ### API & Integration
 
-| Resource             | Location                               | Purpose                   |
-| -------------------- | -------------------------------------- | ------------------------- |
-| **API Spec**         | [`../api-spec.yaml`](../api-spec.yaml) | OpenAPI 3.0 specification |
-| **TypeScript Types** | [`../types.ts`](../types.ts)           | Frontend type definitions |
-| **Go Modules**       | [`../go.mod`](../go.mod)               | Dependency management     |
+| Resource        | Location                               | Purpose                    |
+| --------------- | -------------------------------------- | -------------------------- |
+| **API Spec**    | [`../api-spec.yaml`](../api-spec.yaml) | OpenAPI 3.0 specification  |
+| **Go Modules**  | [`../go.mod`](../go.mod)               | Dependency management      |
+| **Main README** | [`../README.md`](../README.md)         | Project overview and setup |
 
 ### Code Organization
 
@@ -130,13 +130,13 @@ go-search-engine/
 - ✅ Query ID tracking for analytics
 - ✅ Deduplication support
 - ✅ Pagination and ranking
-- ✅ Web dashboard interface
+- ✅ Analytics API endpoints
 
 ---
 
 ## 🔄 **Stay Updated**
 
-- **Latest Changes**: Check [Progress Tracker](./PROGRESS.md)
+- **Latest Features**: Check [Multi-Search API](./MULTI_SEARCH.md)
 - **Typo Tolerance**: See [Typo Tolerance System](./TYPO_TOLERANCE.md)
 - **API Changes**: Review [API Spec](../api-spec.yaml)
 
@@ -146,7 +146,7 @@ go-search-engine/
 
 When contributing to this project:
 
-1. **Follow Standards**: Use [Field Naming Guide](./FIELD_NAMING_GUIDE.md)
+1. **Follow Standards**: Use clear, descriptive field names and consistent code style
 2. **Update Docs**: Keep documentation current
 3. **Typo Tolerance**: Consider impact on [typo tolerance system](./TYPO_TOLERANCE.md)
 4. **Testing**: Ensure all tests pass
