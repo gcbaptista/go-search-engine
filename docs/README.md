@@ -16,12 +16,6 @@ guides, optimization details, and development resources.
 | [**Progress Tracker**](./PROGRESS.md)                 | Development milestones and implementation status                             | 🔄 Active   |
 | [**Field Naming Guide**](./FIELD_NAMING_GUIDE.md)     | Standardized field naming conventions across the codebase                    | ✅ Complete |
 
-### 📜 **Historical Documentation**
-
-| Document                                                  | Description                                                                    | Status     |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------- |
-| [**Typo Migration History**](./TYPO_MIGRATION_HISTORY.md) | Historical record of typo tolerance optimizations and performance improvements | 📚 Archive |
-
 ---
 
 ## 🎯 **Quick Start Guides**
@@ -143,7 +137,7 @@ go-search-engine/
 ## 🔄 **Stay Updated**
 
 - **Latest Changes**: Check [Progress Tracker](./PROGRESS.md)
-- **Performance Updates**: See [Typo Optimization](./TYPO_OPTIMIZATION_SUMMARY.md)
+- **Typo Tolerance**: See [Typo Tolerance System](./TYPO_TOLERANCE.md)
 - **API Changes**: Review [API Spec](../api-spec.yaml)
 
 ---
@@ -154,7 +148,7 @@ When contributing to this project:
 
 1. **Follow Standards**: Use [Field Naming Guide](./FIELD_NAMING_GUIDE.md)
 2. **Update Docs**: Keep documentation current
-3. **Performance**: Consider impact on [typo optimizations](./TYPO_OPTIMIZATION_SUMMARY.md)
+3. **Typo Tolerance**: Consider impact on [typo tolerance system](./TYPO_TOLERANCE.md)
 4. **Testing**: Ensure all tests pass
 
 ---
