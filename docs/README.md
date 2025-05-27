@@ -9,6 +9,7 @@ guides, optimization details, and development resources.
 
 | Document                                              | Description                                                                  | Status      |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------- | ----------- |
+| [**Document Indexing**](./INDEXING.md)                | High-performance indexing system with 27x optimization and bulk operations   | ✅ Complete |
 | [**Async API Operations**](./ASYNC_API.md)            | Complete guide to asynchronous operations and job management                 | ✅ Complete |
 | [**Search Features**](./SEARCH_FEATURES.md)           | Search capabilities including field restriction and typo tolerance           | ✅ Complete |
 | [**Search-Time Settings**](./SEARCH_TIME_SETTINGS.md) | Understanding instant vs reindexing settings for production optimization     | ✅ Complete |
@@ -23,9 +24,10 @@ guides, optimization details, and development resources.
 ### For Developers
 
 1. **Start Here**: [Project README](../README.md) - Main project overview and setup
-2. **API Operations**: [Async API Operations](./ASYNC_API.md) - Understanding async operations and job management
-3. **Typo Tolerance**: [Typo Tolerance System](./TYPO_TOLERANCE.md) - Complete typo tolerance guide
-4. **Advanced Features**: [Multi-Search API](./MULTI_SEARCH.md) - Parallel search capabilities
+2. **Document Indexing**: [Document Indexing](./INDEXING.md) - High-performance indexing with bulk operations
+3. **API Operations**: [Async API Operations](./ASYNC_API.md) - Understanding async operations and job management
+4. **Typo Tolerance**: [Typo Tolerance System](./TYPO_TOLERANCE.md) - Complete typo tolerance guide
+5. **Advanced Features**: [Multi-Search API](./MULTI_SEARCH.md) - Parallel search capabilities
 
 ### For Users
 
@@ -38,6 +40,13 @@ guides, optimization details, and development resources.
 ## 🔧 **Technical Deep Dives**
 
 ### Performance Optimizations
+
+- **[Document Indexing](./INDEXING.md)**
+
+  - High-performance bulk indexing (27x faster)
+  - Worker pool architecture with parallel processing
+  - Memory-aware processing and automatic optimization
+  - Configuration for different deployment sizes
 
 - **[Typo Tolerance System](./TYPO_TOLERANCE.md)**
   - Damerau-Levenshtein distance algorithm

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gcbaptista/go-search-engine/config"
+	"github.com/gcbaptista/go-search-engine/internal/indexing"
 	"github.com/gcbaptista/go-search-engine/internal/search"
 	"github.com/gcbaptista/go-search-engine/model"
 )
@@ -160,8 +161,8 @@ func (e *Engine) executeSearchTimeSettingsUpdateJob(_ context.Context, name stri
 	return e.persistUpdatedIndexUnsafe(name, newSettings, instance)
 }
 
-// executeReindexJob executes a full reindex job.
-func (e *Engine) executeReindexJob(_ context.Context, name string, newSettings config.IndexSettings, _ string) error {
+// executeReindexJob executes a full reindex job using optimized bulk operations.
+func (e *Engine) executeReindexJob(ctx context.Context, name string, newSettings config.IndexSettings, jobID string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -170,15 +171,7 @@ func (e *Engine) executeReindexJob(_ context.Context, name string, newSettings c
 		return fmt.Errorf("index named '%s' not found", name)
 	}
 
-	// Extract all documents before reindexing
-	docs := e.extractAllDocumentsUnsafe(instance)
-
-	// Clear the index
-	if err := instance.DeleteAllDocuments(); err != nil {
-		return fmt.Errorf("failed to clear index for reindexing: %w", err)
-	}
-
-	// Update settings
+	// Update settings first
 	*instance.settings = newSettings
 
 	// Recreate search service with new settings
@@ -188,11 +181,17 @@ func (e *Engine) executeReindexJob(_ context.Context, name string, newSettings c
 	}
 	instance.SetSearcher(searchService)
 
-	// Re-add all documents
-	if len(docs) > 0 {
-		if err := instance.AddDocuments(docs); err != nil {
-			return fmt.Errorf("failed to re-add documents during reindexing: %w", err)
+	// Use optimized bulk reindexing with progress reporting
+	config := indexing.DefaultBulkIndexingConfig()
+	config.ProgressCallback = func(processed, total int, message string) {
+		if e.jobManager != nil {
+			e.jobManager.UpdateJobProgress(jobID, processed, total, message)
 		}
+	}
+
+	// Perform bulk reindex
+	if err := instance.BulkReindex(config); err != nil {
+		return fmt.Errorf("failed to perform bulk reindex: %w", err)
 	}
 
 	// Persist updated index
