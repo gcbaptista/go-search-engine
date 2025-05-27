@@ -932,9 +932,17 @@ paths:
                   query: "action"
                   restrict_searchable_fields: ["title", "genres"]
                   filters:
-                    year_gte: 2000
-                    rating_gte: 8.0
-                    genres_contains: "Action"
+                    operator: "AND"
+                    filters:
+                      - field: "year"
+                        operator: "_gte"
+                        value: 2000
+                      - field: "rating"
+                        operator: "_gte"
+                        value: 8.0
+                      - field: "genres"
+                        operator: "_contains"
+                        value: "Action"
                   page: 1
                   page_size: 5
               advanced_filters:
@@ -943,11 +951,23 @@ paths:
                   query: "sci-fi"
                   restrict_searchable_fields: ["title", "cast", "genres"]
                   filters:
-                    year_gte: 1990
-                    year_lte: 2020
-                    rating_gt: 7.5
-                    cast_contains: "Keanu"
-                    genres_contains_any_of: ["Sci-Fi", "Thriller"]
+                    operator: "AND"
+                    filters:
+                      - field: "year"
+                        operator: "_gte"
+                        value: 1990
+                      - field: "year"
+                        operator: "_lte"
+                        value: 2020
+                      - field: "rating"
+                        operator: "_gt"
+                        value: 7.5
+                      - field: "cast"
+                        operator: "_contains"
+                        value: "Keanu"
+                      - field: "genres"
+                        operator: "_contains_any_of"
+                        value: ["Sci-Fi", "Thriller"]
                   page: 1
                   page_size: 20
               field_restricted_search:
@@ -964,7 +984,11 @@ paths:
                   restrict_searchable_fields: ["title", "genres"]
                   retrievable_fields: ["title", "year", "rating"]
                   filters:
-                    year_gte: 2000
+                    operator: "AND"
+                    filters:
+                      - field: "year"
+                        operator: "_gte"
+                        value: 2000
                   page: 1
                   page_size: 10
               typo_tolerance_override:
@@ -1075,14 +1099,26 @@ paths:
                       query: "action"
                       restrict_searchable_fields: ["genres"]
                       filters:
-                        year_gte: 2010
-                        rating_gte: 7.0
+                        operator: "AND"
+                        filters:
+                          - field: "year"
+                            operator: "_gte"
+                            value: 2010
+                          - field: "rating"
+                            operator: "_gte"
+                            value: 7.0
                     - name: "classic_drama"
                       query: "drama"
                       restrict_searchable_fields: ["genres"]
                       filters:
-                        year_lt: 2000
-                        rating_gte: 8.0
+                        operator: "AND"
+                        filters:
+                          - field: "year"
+                            operator: "_lt"
+                            value: 2000
+                          - field: "rating"
+                            operator: "_gte"
+                            value: 8.0
               typo_tolerance_override:
                 summary: Multi-search with typo tolerance overrides
                 value:
@@ -1372,18 +1408,7 @@ components:
             This allows you to limit the response size by only returning specific fields (e.g., only "title" and "year").
           example: ["title", "year", "rating"]
         filters:
-          type: object
-          additionalProperties: true
-          description: |
-            Filter criteria using field names with optional operators:
-            - Exact match: "field": "value"
-            - Numeric: field_gt, field_gte, field_lt, field_lte, field_ne
-            - String: field_contains, field_ncontains
-            - Array: field_contains, field_contains_any_of
-          example:
-            year_gte: 2000
-            rating_gt: 8.0
-            genres_contains: "Action"
+          $ref: "#/components/schemas/Filters"
         page:
           type: integer
           minimum: 1
@@ -1776,13 +1801,7 @@ components:
             Optional subset of document fields to return in results for this query.
           example: ["title", "year", "cast"]
         filters:
-          type: object
-          additionalProperties: true
-          description: |
-            Query-specific filters.
-          example:
-            year_gte: 2000
-            rating_gte: 8.0
+          $ref: "#/components/schemas/Filters"
         min_word_size_for_1_typo:
           type: integer
           minimum: 0
@@ -1829,6 +1848,83 @@ components:
           format: float
           description: Total processing time in milliseconds
           example: 27.5
+
+    Filters:
+      type: object
+      properties:
+        operator:
+          type: string
+          enum: ["AND", "OR"]
+          default: "OR"
+          description: Logical operator to combine filter conditions and groups
+          example: "AND"
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/FilterCondition"
+          description: Array of filter conditions
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/Filters"
+          description: Nested filter groups for complex boolean expressions
+      example:
+        operator: "AND"
+        filters:
+          - field: "year"
+            operator: "_gte"
+            value: 2000
+            score: 1.0
+          - field: "rating"
+            operator: "_gt"
+            value: 8.0
+            score: 2.0
+
+    FilterCondition:
+      type: object
+      required:
+        - field
+        - value
+      properties:
+        field:
+          type: string
+          description: Name of the field to filter on
+          example: "year"
+        operator:
+          type: string
+          enum:
+            [
+              "_exact",
+              "_ne",
+              "_gt",
+              "_gte",
+              "_lt",
+              "_lte",
+              "_contains",
+              "_ncontains",
+              "_contains_any_of",
+            ]
+          default: "_exact"
+          description: |
+            Filter operator to apply:
+            - `_exact`: Exact match (default)
+            - `_ne`: Not equal
+            - `_gt`: Greater than
+            - `_gte`: Greater than or equal
+            - `_lt`: Less than
+            - `_lte`: Less than or equal
+            - `_contains`: Contains substring (for strings) or contains value (for arrays)
+            - `_ncontains`: Does not contain
+            - `_contains_any_of`: Contains any of the provided values (for arrays)
+          example: "_gte"
+        value:
+          description: Value to filter against (type depends on field and operator)
+          example: 2000
+        score:
+          type: number
+          format: float
+          description: Optional score boost for documents matching this condition
+          example: 1.0
 
   examples:
     MovieIndex:

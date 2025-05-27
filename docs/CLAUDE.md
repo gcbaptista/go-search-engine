@@ -50,21 +50,23 @@ designed for scalability and maintainability.
 
 ### Field Naming Guidelines
 
-⚠️ **Critical**: Avoid field names ending with filter operators to prevent parsing conflicts:
+Use descriptive and meaningful field names that clearly represent the data they contain:
 
-**Avoid these suffixes:**
+**Best practices:**
 
-- `*_exact`, `*_ne`, `*_gt`, `*_gte`, `*_lt`, `*_lte`
-- `*_contains`, `*_ncontains`, `*_contains_any_of`
+- Use clear, descriptive names that indicate the field's purpose
+- Use consistent naming conventions (snake_case or camelCase)
+- Avoid abbreviations unless they're widely understood
+- Include units in field names when relevant (e.g., `price_usd`, `duration_seconds`)
 
 **Good field names:**
 
 ```go
 // ✅ Recommended
-[]string{"title", "description", "author_name", "release_date", "user_id"}
+[]string{"title", "description", "author_name", "release_date", "user_id", "price_usd", "rating_score"}
 
-// ❌ Avoid
-[]string{"user_exact", "rating_gte", "description_contains"}
+// ❌ Avoid unclear names
+[]string{"data", "info", "val", "tmp", "x"}
 ```
 
 ### Directory Structure
@@ -410,9 +412,9 @@ git commit -m "feat: add fuzzy search functionality
 1. **Follow coding conventions** outlined in this document
 2. **Write comprehensive tests** for new functionality
 3. **Update documentation** including:
-    - Code comments for public functions
-    - README.md if adding new features
-    - API documentation in `api-spec.yaml`
+   - Code comments for public functions
+   - README.md if adding new features
+   - API documentation in `api-spec.yaml`
 4. **Run complete linting suite** after major tasks (as per Post-Major Task Requirements)
 5. **Verify build and tests** before considering work complete
 

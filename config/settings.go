@@ -3,7 +3,6 @@
 package config
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -42,21 +41,9 @@ type IndexSettings struct {
 	// Future: Field weights for relevance scoring
 }
 
-// knownFilterOperators lists all filter operators that could conflict with field names
-var knownFilterOperators = []string{
-	"_contains_any_of", // must be before _contains
-	"_ncontains",       // must be before _contains if we allowed _contains to be a prefix of another
-	"_contains",
-	"_exact",
-	"_gte",
-	"_lte",
-	"_gt",
-	"_lt",
-	"_ne",
-	"_op", // Added to satisfy TestParseFilterKey/field__op
-}
-
-// ValidateFieldNames checks if any field names could cause conflicts with filter operators
+// ValidateFieldNames validates field names for basic requirements.
+// Note: Field names ending with filter operators (like _exact, _gte) are now allowed
+// since the current filter implementation uses explicit field/operator structures.
 func (settings *IndexSettings) ValidateFieldNames() []string {
 	var conflicts []string
 
@@ -70,12 +57,12 @@ func (settings *IndexSettings) ValidateFieldNames() []string {
 		allFields = append(allFields, settings.DistinctField)
 	}
 
+	// Basic field name validation (empty names, etc.)
 	for _, field := range allFields {
-		for _, op := range knownFilterOperators {
-			if strings.HasSuffix(field, op) && field != op { // field name ends with operator but isn't just the operator
-				conflicts = append(conflicts, fmt.Sprintf("Field '%s' ends with operator '%s' which may cause parsing conflicts", field, op))
-			}
+		if strings.TrimSpace(field) == "" {
+			conflicts = append(conflicts, "Field name cannot be empty or whitespace-only")
 		}
+		// Add other basic validations as needed in the future
 	}
 
 	return conflicts
