@@ -522,18 +522,17 @@ This project is licensed under the MIT License.
 - [ ] Additional data format support (JSON, XML, CSV)
 - [ ] Machine learning-based ranking improvements
 
-## ✨ What's New: Damerau-Levenshtein Distance
+## ✨ Advanced Typo Tolerance
 
-The search engine now uses **Damerau-Levenshtein distance** for superior typo tolerance:
+The search engine uses **Damerau-Levenshtein distance** for comprehensive typo tolerance:
 
-- **87.5% improvement** in common typo detection
-- **Transposition support**: `"form" ↔ "from"` = 1 edit (was 2)
-- **Better user experience**: Catches adjacent character swaps
-- **Performance optimized**: 34% faster than standard implementation
+- **Transposition support**: Handles adjacent character swaps
+- **Better user experience**: Catches common typing mistakes
+- **Performance optimized**: Fast calculation with early termination
 
-### Common Typos Now Handled Better:
+### Common Typos Handled:
 
-- `"teh" → "the"` (1 edit instead of 2)
-- `"form" → "from"` (1 edit instead of 2)
-- `"recieve" → "receive"` (1 edit instead of 2)
-- `"calendar" → "calender"` (1 edit instead of 2)
+- `"teh" → "the"` (character transposition)
+- `"form" → "from"` (character transposition)
+- `"recieve" → "receive"` (character transposition)
+- `"calendar" → "calender"` (character transposition)
