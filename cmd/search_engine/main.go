@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gcbaptista/go-search-engine/api"
 	"github.com/gcbaptista/go-search-engine/internal/engine"
@@ -52,9 +57,37 @@ func main() {
 	// Setup API routes
 	api.SetupRoutes(router, searchEngine)
 
-	// Start the server
-	log.Printf("Starting server on port %s...", *port)
-	if err := router.Run(":" + *port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	// Configure HTTP server with timeouts to prevent hanging connections
+	srv := &http.Server{
+		Addr:           ":" + *port,
+		Handler:        router,
+		ReadTimeout:    30 * time.Second,  // Time to read request headers and body
+		WriteTimeout:   60 * time.Second,  // Time to write response (longer for large responses)
+		IdleTimeout:    120 * time.Second, // Time to keep connections alive
+		MaxHeaderBytes: 1 << 20,           // 1 MB max header size
 	}
+
+	// Start server in a goroutine
+	go func() {
+		log.Printf("Starting server on port %s with timeouts configured...", *port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
+
+	// Give outstanding requests 30 seconds to complete
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("Server forced to shutdown: %v", err)
+	}
+
+	log.Println("Server exited")
 }

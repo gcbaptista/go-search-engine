@@ -1,0 +1,29 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 🚨 Critical Rules (Always Apply)
+
+These are the most important rules that must be followed in all development work, regardless of the specific domain:
+
+## Core Principles
+
+- **Always be coherent with what is defined in docs/CLAUDE.md**
+- **🚫 NO BACKWARD COMPATIBILITY OR DEPRECATED CODE** - Remove old code completely, don't maintain legacy systems
+- **Run complete linting suite after major tasks** (see docs/CLAUDE.md Post-Major Task Requirements)
+- **Use @.github/pull_request_template.md for all PRs**
+- **MUST follow [Conventional Commits](mdc:https:/www.conventionalcommits.org) for all commit messages and PR titles**
+- **Try conventional commands first, use workarounds only if errors occur**
+
+## Rule Organization
+
+The detailed rules are organized by domain:
+
+- **Development**: `development.mdc` - Code quality, standards, testing
+- **Git & Workflow**: `git-workflow.mdc` - PR creation, branch management, code review  
+- **Cursor Agent**: `cursor-agent.mdc` - Tool workarounds, terminal issues
+
+---
+
+*These critical rules take precedence over domain-specific rules when there are conflicts.*
