@@ -6,7 +6,9 @@
 
 ## Overview
 
-The Go Search Engine implements **full asynchronous processing for all writing operations** to eliminate timeout issues and provide real-time progress tracking. All operations that modify data return immediately with a job ID, allowing clients to track progress without blocking.
+The Go Search Engine implements **full asynchronous processing for all writing operations** to eliminate timeout issues
+and provide real-time progress tracking. All operations that modify data return immediately with a job ID, allowing
+clients to track progress without blocking.
 
 ## 🚀 Key Features
 
@@ -229,4 +231,4 @@ Failed jobs include detailed error information:
 
 - **[Search-Time vs Core Settings](./SEARCH_TIME_SETTINGS.md)** - Understanding different types of settings updates
 - **[Analytics](./ANALYTICS.md)** - Performance monitoring and analytics
-- **[Dashboard Guide](./DASHBOARD_GUIDE.md)** - Using the web dashboard with async operations
+- **[Analytics Guide](./ANALYTICS.md)** - Performance monitoring and analytics with async operations

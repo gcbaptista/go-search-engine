@@ -20,7 +20,12 @@ func SaveGob(filePath string, object interface{}) error {
 	if err != nil {
 		return fmt.Errorf("failed to create file %s: %w", filePath, err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			// Log the error but don't override the main error
+			fmt.Printf("Warning: failed to close file %s: %v\n", filePath, closeErr)
+		}
+	}()
 
 	encoder := gob.NewEncoder(file)
 	if err := encoder.Encode(object); err != nil {
@@ -41,7 +46,12 @@ func LoadGob(filePath string, objectPointer interface{}) error {
 		}
 		return fmt.Errorf("failed to open file %s: %w", filePath, err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			// Log the error but don't override the main error
+			fmt.Printf("Warning: failed to close file %s: %v\n", filePath, closeErr)
+		}
+	}()
 
 	decoder := gob.NewDecoder(file)
 	if err := decoder.Decode(objectPointer); err != nil {

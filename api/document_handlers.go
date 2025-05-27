@@ -35,7 +35,7 @@ func (api *API) AddDocumentsHandler(c *gin.Context) {
 		docs = make([]model.Document, len(dataSlice))
 		for i, item := range dataSlice {
 			if docMap, isMap := item.(map[string]interface{}); isMap {
-				docs[i] = model.Document(docMap)
+				docs[i] = docMap
 			} else {
 				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Document at index %d is not a valid object", i)})
 				return
@@ -43,7 +43,7 @@ func (api *API) AddDocumentsHandler(c *gin.Context) {
 		}
 	} else if docMap, isMap := rawData.(map[string]interface{}); isMap {
 		// Handle single document
-		docs = []model.Document{model.Document(docMap)}
+		docs = []model.Document{docMap}
 	} else {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body. Expecting a document object or an array of documents"})
 		return
@@ -176,7 +176,7 @@ func (api *API) GetDocumentsHandler(c *gin.Context) {
 		req.PageSize = 100 // Maximum page size
 	}
 
-	documents := []model.Document{}
+	var documents []model.Document
 	totalCount := 0
 
 	if concreteEngine, ok := api.engine.(*engine.Engine); ok {

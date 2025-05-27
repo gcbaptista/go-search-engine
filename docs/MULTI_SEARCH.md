@@ -1,6 +1,8 @@
 # Multi-Search API
 
-The Multi-Search API allows you to execute multiple named search queries independently in a single request. Each query is executed separately and results are returned individually, making it ideal for scenarios where you need to search different fields or apply different filters simultaneously.
+The Multi-Search API allows you to execute multiple named search queries independently in a single request. Each query
+is executed separately, and results are returned individually, making it ideal for scenarios where you need to search
+different fields or apply different filters simultaneously.
 
 ## Endpoint
 
@@ -17,7 +19,7 @@ POST /{indexName}/_multi_search
       "name": "query_name",
       "query": "search_terms",
       "restrict_searchable_fields": ["field1", "field2"],
-      "retrivable_fields": ["field1", "field2", "field3"],
+      "retrievable_fields": ["field1", "field2", "field3"],
       "filters": {
         "field_gte": 100,
         "field_contains": "value"
@@ -34,13 +36,13 @@ POST /{indexName}/_multi_search
 ### Request Parameters
 
 - **queries** (required): Array of named search queries
-  - **name** (required): Unique identifier for the query
-  - **query** (required): Search query string
-  - **restrict_searchable_fields** (optional): Subset of searchable fields to search in
-  - **retrivable_fields** (optional): Subset of document fields to return
-  - **filters** (optional): Query-specific filters
-  - **min_word_size_for_1_typo** (optional): Override for 1-typo tolerance
-  - **min_word_size_for_2_typos** (optional): Override for 2-typo tolerance
+    - **name** (required): Unique identifier for the query
+    - **query** (required): Search query string
+    - **restrict_searchable_fields** (optional): Subset of searchable fields to search in
+    - **retrievable_fields** (optional): Subset of document fields to return
+    - **filters** (optional): Query-specific filters
+    - **min_word_size_for_1_typo** (optional): Override for 1-typo tolerance
+    - **min_word_size_for_2_typos** (optional): Override for 2-typo tolerance
 - **page** (optional): Page number for all queries (default: 1)
 - **page_size** (optional): Results per page for all queries (default: 10)
 
@@ -152,7 +154,7 @@ Apply different filters to different searches:
         "year_gte": 2020,
         "rating_gte": 8.0
       },
-      "retrivable_fields": ["title", "year", "rating"]
+      "retrievable_fields": ["title", "year", "rating"]
     },
     {
       "name": "classic_popular",
@@ -161,7 +163,7 @@ Apply different filters to different searches:
         "year_lt": 2000,
         "rating_gte": 8.5
       },
-      "retrivable_fields": ["title", "year", "rating", "director"]
+      "retrievable_fields": ["title", "year", "rating", "director"]
     }
   ]
 }
@@ -172,7 +174,7 @@ Apply different filters to different searches:
 - **Parallel Execution**: Queries are executed independently, allowing for potential parallelization
 - **Individual Optimization**: Each query can be optimized separately with its own field restrictions and filters
 - **Memory Usage**: Results are kept separate, avoiding the overhead of combination logic
-- **Response Size**: Consider using `retrivable_fields` to limit response size when dealing with large documents
+- **Response Size**: Consider using `retrievable_fields` to limit response size when dealing with large documents
 
 ## Error Handling
 
@@ -192,7 +194,7 @@ Common error responses:
 ## Best Practices
 
 1. **Use Descriptive Names**: Choose meaningful query names for easier result processing
-2. **Limit Fields**: Use `restrict_searchable_fields` and `retrivable_fields` to improve performance
+2. **Limit Fields**: Use `restrict_searchable_fields` and `retrievable_fields` to improve performance
 3. **Appropriate Pagination**: Set reasonable `page_size` values based on your use case
 4. **Filter Early**: Apply filters to reduce the result set size
 5. **Monitor Performance**: Use the `processing_time_ms` field to monitor query performance

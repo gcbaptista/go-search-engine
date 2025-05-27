@@ -6,13 +6,16 @@
 
 ## Overview
 
-The Go Search Engine provides advanced search capabilities with flexible field targeting, typo tolerance, filtering, and ranking. This document covers the key search features available through the API.
+The Go Search Engine provides advanced search capabilities with flexible field targeting, typo tolerance, filtering, and
+ranking. This document covers the key search features available through the API.
 
 ## 🎯 Restrict Searchable Fields
 
 ### Overview
 
-The `restrict_searchable_fields` feature allows you to limit search queries to specific fields, providing more targeted search results. This is useful when you want to search only in certain fields (e.g., only in titles, or only in descriptions).
+The `restrict_searchable_fields` feature allows you to limit search queries to specific fields, providing more targeted
+search results. This is useful when you want to search only in certain fields (e.g., only in titles, or only in
+descriptions).
 
 ### Usage
 
@@ -151,7 +154,7 @@ curl -X POST http://localhost:8080/indexes/products/search \
 ### Supported Filter Operators
 
 | Operator          | Description            | Example                                   |
-| ----------------- | ---------------------- | ----------------------------------------- |
+|-------------------|------------------------|-------------------------------------------|
 | `exact`           | Exact match            | `"category_exact": "electronics"`         |
 | `ne`              | Not equal              | `"status_ne": "inactive"`                 |
 | `gt`              | Greater than           | `"price_gt": 100`                         |

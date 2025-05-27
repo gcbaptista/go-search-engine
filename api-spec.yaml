@@ -962,7 +962,7 @@ paths:
                 value:
                   query: "action movie"
                   restrict_searchable_fields: ["title", "genres"]
-                  retrivable_fields: ["title", "year", "rating"]
+                  retrievable_fields: ["title", "year", "rating"]
                   filters:
                     year_gte: 2000
                   page: 1
@@ -1362,7 +1362,7 @@ components:
             If omitted, all configured searchable_fields will be used.
             An error will be returned if this field contains invalid field names.
           example: ["title", "cast"]
-        retrivable_fields:
+        retrievable_fields:
           type: array
           items:
             type: string
@@ -1722,30 +1722,30 @@ components:
         - current
         - total
 
-         MultiSearchRequest:
-       type: object
-       required:
-         - queries
-       properties:
-         queries:
-           type: array
-           items:
-             $ref: "#/components/schemas/NamedSearchRequest"
-           description: List of named search queries to execute
-           minItems: 1
-         page:
-           type: integer
-           minimum: 1
-           default: 1
-           description: Page number for individual query results
-           example: 1
-         page_size:
-           type: integer
-           minimum: 1
-           maximum: 100
-           default: 10
-           description: Number of results per page for individual query results
-           example: 10
+    MultiSearchRequest:
+      type: object
+      required:
+        - queries
+      properties:
+        queries:
+          type: array
+          items:
+            $ref: "#/components/schemas/NamedSearchRequest"
+          description: List of named search queries to execute
+          minItems: 1
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Page number for individual query results
+          example: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+          description: Number of results per page for individual query results
+          example: 10
 
     NamedSearchRequest:
       type: object
@@ -1768,7 +1768,7 @@ components:
           description: |
             Optional subset of searchable fields to search in. If not provided, searches all configured searchable fields.
           example: ["title", "description"]
-        retrivable_fields:
+        retrievable_fields:
           type: array
           items:
             type: string

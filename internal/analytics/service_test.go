@@ -14,18 +14,18 @@ type MockIndexManager struct {
 	indexes []string
 }
 
-func (m *MockIndexManager) CreateIndex(settings config.IndexSettings) error      { return nil }
-func (m *MockIndexManager) GetIndex(name string) (services.IndexAccessor, error) { return nil, nil }
-func (m *MockIndexManager) GetIndexSettings(name string) (config.IndexSettings, error) {
+func (m *MockIndexManager) CreateIndex(_ config.IndexSettings) error          { return nil }
+func (m *MockIndexManager) GetIndex(_ string) (services.IndexAccessor, error) { return nil, nil }
+func (m *MockIndexManager) GetIndexSettings(_ string) (config.IndexSettings, error) {
 	return config.IndexSettings{}, nil
 }
-func (m *MockIndexManager) UpdateIndexSettings(name string, settings config.IndexSettings) error {
+func (m *MockIndexManager) UpdateIndexSettings(_ string, _ config.IndexSettings) error {
 	return nil
 }
-func (m *MockIndexManager) RenameIndex(oldName, newName string) error { return nil }
-func (m *MockIndexManager) DeleteIndex(name string) error             { return nil }
-func (m *MockIndexManager) ListIndexes() []string                     { return m.indexes }
-func (m *MockIndexManager) PersistIndexData(indexName string) error   { return nil }
+func (m *MockIndexManager) RenameIndex(_, _ string) error   { return nil }
+func (m *MockIndexManager) DeleteIndex(_ string) error      { return nil }
+func (m *MockIndexManager) ListIndexes() []string           { return m.indexes }
+func (m *MockIndexManager) PersistIndexData(_ string) error { return nil }
 
 func TestAnalyticsService_TrackSearchEvent(t *testing.T) {
 	mockIndexManager := &MockIndexManager{

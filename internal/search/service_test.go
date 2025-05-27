@@ -310,24 +310,14 @@ func TestDeduplicateResults(t *testing.T) {
 	}
 
 	t.Run("no deduplication when distinct field is empty", func(t *testing.T) {
-		// Convert hits to candidateHit format for testing
-		candidates := make([]*candidateHit, len(hits))
-		for i, hit := range hits {
-			candidates[i] = &candidateHit{doc: hit.Document, score: hit.Score}
-		}
-		result := service.deduplicateCandidates(candidates, "")
+		result := service.deduplicateResults(hits, "")
 		if len(result) != len(hits) {
 			t.Errorf("Expected %d hits, got %d", len(hits), len(result))
 		}
 	})
 
 	t.Run("deduplication by title keeps highest scoring", func(t *testing.T) {
-		// Convert hits to candidateHit format for testing
-		candidates := make([]*candidateHit, len(hits))
-		for i, hit := range hits {
-			candidates[i] = &candidateHit{doc: hit.Document, score: hit.Score}
-		}
-		result := service.deduplicateCandidates(candidates, "title")
+		result := service.deduplicateResults(hits, "title")
 
 		// Should have 3 unique titles: The Matrix, The Dark Knight, Inception
 		if len(result) != 3 {
@@ -337,8 +327,8 @@ func TestDeduplicateResults(t *testing.T) {
 		// Verify the kept documents are the highest scoring ones
 		expectedUUIDs := []string{"1", "3", "5"} // These have the highest scores for each title
 		for i, hit := range result {
-			if hit.doc["documentID"] != expectedUUIDs[i] {
-				t.Errorf("Expected documentID %s at position %d, got %s", expectedUUIDs[i], i, hit.doc["documentID"])
+			if hit.Document["documentID"] != expectedUUIDs[i] {
+				t.Errorf("Expected documentID %s at position %d, got %s", expectedUUIDs[i], i, hit.Document["documentID"])
 			}
 		}
 	})
@@ -355,12 +345,7 @@ func TestDeduplicateResults(t *testing.T) {
 			},
 		}
 
-		// Convert hits to candidateHit format for testing
-		candidates := make([]*candidateHit, len(hitsWithMissingField))
-		for i, hit := range hitsWithMissingField {
-			candidates[i] = &candidateHit{doc: hit.Document, score: hit.Score}
-		}
-		result := service.deduplicateCandidates(candidates, "title")
+		result := service.deduplicateResults(hitsWithMissingField, "title")
 
 		// Both should be kept since one doesn't have the distinct field
 		if len(result) != 2 {
@@ -369,121 +354,13 @@ func TestDeduplicateResults(t *testing.T) {
 	})
 
 	t.Run("deduplication by year", func(t *testing.T) {
-		// Convert hits to candidateHit format for testing
-		candidates := make([]*candidateHit, len(hits))
-		for i, hit := range hits {
-			candidates[i] = &candidateHit{doc: hit.Document, score: hit.Score}
-		}
-		result := service.deduplicateCandidates(candidates, "year")
+		result := service.deduplicateResults(hits, "year")
 
 		// Should have 3 unique years: 1999, 2008, 2010
 		if len(result) != 3 {
 			t.Errorf("Expected 3 deduplicated hits by year, got %d", len(result))
 		}
 	})
-}
-
-func TestDocMatchesFilters(t *testing.T) {
-	// Create custom settings that include title and tags as filterable fields
-	settings := newTestIndexSettings()
-	settings.FilterableFields = append(settings.FilterableFields, "title", "tags", "is_available", "release_date")
-	service, _ := setupTestSearchService(t, settings)
-
-	now := time.Now()
-	doc := model.Document{
-		"documentID":   "test_filter_test_movie_doc",
-		"title":        "Filter Test Movie",
-		"genre":        "Action",
-		"year":         2020,
-		"rating":       8.5,
-		"is_available": true,
-		"release_date": now.Format(time.RFC3339Nano),
-		"features":     []string{"hdr", "atmos"},
-		"tags":         []interface{}{"test", "filter"}, // Test []interface{} as well
-	}
-
-	tests := []struct {
-		name     string
-		doc      model.Document
-		filters  map[string]interface{}
-		expected bool
-	}{
-		{"no filters", doc, map[string]interface{}{}, true},
-		{"exact string match pass", doc, map[string]interface{}{"genre": "Action"}, true},
-		{"exact string match fail", doc, map[string]interface{}{"genre": "Comedy"}, false},
-		{"exact string match case-sensitive fail", doc, map[string]interface{}{"genre": "action"}, false},
-		{"exact number match pass", doc, map[string]interface{}{"year": 2020}, true},
-		{"exact number match fail", doc, map[string]interface{}{"year": 2021}, false},
-		{"float match pass", doc, map[string]interface{}{"rating": 8.5}, true},
-		{"bool match pass", doc, map[string]interface{}{"is_available": true}, true},
-		{"bool match fail", doc, map[string]interface{}{"is_available": false}, false},
-
-		// Range filters
-		{"year_gte pass", doc, map[string]interface{}{"year_gte": 2020}, true},
-		{"year_gte fail", doc, map[string]interface{}{"year_gte": 2021}, false},
-		{"year_gt pass", doc, map[string]interface{}{"year_gt": 2019}, true},
-		{"year_gt fail", doc, map[string]interface{}{"year_gt": 2020}, false},
-		{"rating_lte pass", doc, map[string]interface{}{"rating_lte": 8.5}, true},
-		{"rating_lt pass", doc, map[string]interface{}{"rating_lt": 8.6}, true},
-
-		// String operations
-		{"title_contains pass", doc, map[string]interface{}{"title_contains": "Test"}, true},
-		{"title_contains fail", doc, map[string]interface{}{"title_contains": "XYZ"}, false},
-		{"title_ncontains pass", doc, map[string]interface{}{"title_ncontains": "XYZ"}, true},
-		{"title_ncontains fail", doc, map[string]interface{}{"title_ncontains": "Test"}, false},
-
-		// Slice operations
-		{"features_contains pass (string in []string)", doc, map[string]interface{}{"features_contains": "hdr"}, true},
-		{"features_contains fail", doc, map[string]interface{}{"features_contains": "dolby"}, false},
-		{"tags_contains pass (string in []interface{})", doc, map[string]interface{}{"tags_contains": "test"}, true},
-
-		// Time filter
-		{"release_date_exact pass", doc, map[string]interface{}{"release_date": now.Format(time.RFC3339Nano)}, true},
-		{"release_date_gte pass", doc, map[string]interface{}{"release_date_gte": now.Add(-time.Hour).Format(time.RFC3339Nano)}, true},
-		{"release_date_lt fail", doc, map[string]interface{}{"release_date_lt": now.Format(time.RFC3339Nano)}, false},
-
-		// Non-filterable field, should be ignored (effectively pass as this filter won't apply)
-		{"non_filterable_field", doc, map[string]interface{}{"popularity_gt": 5}, true},
-		// Unknown operator, should be ignored (effectively pass)
-		{"year_unknown_op", doc, map[string]interface{}{"year_unknown_op": 2020}, true},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			// Ensure filterable fields map is up-to-date within the service if it's cached
-			// (Currently, docMatchesFilters creates it on the fly or uses one from service struct if implemented)
-			got := service.docMatchesFilters(tc.doc, tc.filters)
-			if got != tc.expected {
-				t.Errorf("docMatchesFilters() for doc %v with filters %v = %v, want %v", tc.doc, tc.filters, got, tc.expected)
-			}
-		})
-	}
-}
-
-func TestParseFilterKey(t *testing.T) {
-	tests := []struct {
-		key       string
-		wantField string
-		wantOp    string
-	}{
-		{"year", "year", ""},
-		{"year_gte", "year", "_gte"},
-		{"title_contains", "title", "_contains"},
-		{"description_ncontains", "description", "_ncontains"},
-		{"my_field_name_lt", "my_field_name", "_lt"},
-		{"_some_field_exact", "_some_field", "_exact"}, // Assuming leading underscore is part of field name
-		{"field_only", "field_only", ""},
-		{"field__op", "field_", "_op"}, // Double underscore
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.key, func(t *testing.T) {
-			gotField, gotOp := parseFilterKey(tc.key)
-			if gotField != tc.wantField || gotOp != tc.wantOp {
-				t.Errorf("parseFilterKey(%q) = (%q, %q), want (%q, %q)", tc.key, gotField, gotOp, tc.wantField, tc.wantOp)
-			}
-		})
-	}
 }
 
 // TestApplyFilterLogic needs to be comprehensive for types and operators
@@ -705,24 +582,6 @@ func TestFieldNameValidation(t *testing.T) {
 		}
 	})
 
-	t.Run("demonstrate parsing conflict in practice", func(t *testing.T) {
-		// This test shows the actual problem: if you have a field named "my_field_exact",
-		// you cannot filter it because the parser will interpret "_exact" as an operator
-
-		// Scenario: User has a field literally named "rating_exact"
-		// They want to filter documents where rating_exact = "premium"
-
-		fieldName, operator := parseFilterKey("rating_exact")
-
-		// What the user wanted: field="rating_exact", operator=""
-		// What they got: field="rating", operator="_exact"
-		if fieldName != "rating" || operator != "_exact" {
-			t.Errorf("parseFilterKey('rating_exact') = ('%s', '%s'), showing the conflict behavior", fieldName, operator)
-		}
-
-		// To filter a field named "rating_exact" for exact match, there's currently no way
-		// The user would need to rename their field to avoid the conflict
-	})
 }
 
 func TestRestrictSearchableFields(t *testing.T) {
@@ -881,8 +740,8 @@ func TestRestrictSearchableFields(t *testing.T) {
 	})
 }
 
-// TestRetrivableFields tests the functionality of limiting returned document fields
-func TestRetrivableFields(t *testing.T) {
+// TestRetrievableFields tests the functionality of limiting returned document fields
+func TestRetrievableFields(t *testing.T) {
 	docID1 := "test_movie_1"
 	docID2 := "test_movie_2"
 
@@ -911,11 +770,11 @@ func TestRetrivableFields(t *testing.T) {
 		t.Fatalf("Failed to add documents: %v", err)
 	}
 
-	t.Run("no retrivable_fields specified - returns all fields", func(t *testing.T) {
+	t.Run("no retrievable_fields specified - returns all fields", func(t *testing.T) {
 		query := services.SearchQuery{
 			QueryString:              "Matrix",
 			RestrictSearchableFields: []string{"title", "description"},
-			RetrivableFields:         []string{}, // Empty means return all fields
+			RetrievableFields:        []string{}, // Empty means return all fields
 		}
 		result, err := service.Search(query)
 		if err != nil {
@@ -936,11 +795,11 @@ func TestRetrivableFields(t *testing.T) {
 		}
 	})
 
-	t.Run("retrivable_fields specified - returns only specified fields", func(t *testing.T) {
+	t.Run("retrievable_fields specified - returns only specified fields", func(t *testing.T) {
 		query := services.SearchQuery{
 			QueryString:              "Matrix",
 			RestrictSearchableFields: []string{"title", "description"},
-			RetrivableFields:         []string{"title", "year", "rating"}, // Only these fields should be returned
+			RetrievableFields:        []string{"title", "year", "rating"}, // Only these fields should be returned
 		}
 		result, err := service.Search(query)
 		if err != nil {
@@ -977,11 +836,11 @@ func TestRetrivableFields(t *testing.T) {
 		}
 	})
 
-	t.Run("retrivable_fields with documentID always included", func(t *testing.T) {
+	t.Run("retrievable_fields with documentID always included", func(t *testing.T) {
 		query := services.SearchQuery{
 			QueryString:              "Matrix",
 			RestrictSearchableFields: []string{"title", "description"},
-			RetrivableFields:         []string{"title"}, // Only title specified, but documentID should still be included
+			RetrievableFields:        []string{"title"}, // Only title specified, but documentID should still be included
 		}
 		result, err := service.Search(query)
 		if err != nil {
@@ -1008,11 +867,11 @@ func TestRetrivableFields(t *testing.T) {
 		}
 	})
 
-	t.Run("retrivable_fields with non-existent field", func(t *testing.T) {
+	t.Run("retrievable_fields with non-existent field", func(t *testing.T) {
 		query := services.SearchQuery{
 			QueryString:              "Matrix",
 			RestrictSearchableFields: []string{"title", "description"},
-			RetrivableFields:         []string{"title", "nonexistent_field"}, // nonexistent_field should be ignored
+			RetrievableFields:        []string{"title", "nonexistent_field"}, // nonexistent_field should be ignored
 		}
 		result, err := service.Search(query)
 		if err != nil {
@@ -1183,16 +1042,22 @@ func TestMultiSearch(t *testing.T) {
 				{
 					Name:  "programming_2020",
 					Query: "programming",
-					Filters: map[string]interface{}{
-						"category": "programming",
-						"year":     2020,
+					Filters: &services.Filters{
+						Operator: "AND",
+						Filters: []services.FilterCondition{
+							{Field: "category", Value: "programming"},
+							{Field: "year", Value: 2020},
+						},
 					},
 				},
 				{
 					Name:  "web_category",
 					Query: "web",
-					Filters: map[string]interface{}{
-						"category": "web",
+					Filters: &services.Filters{
+						Operator: "AND",
+						Filters: []services.FilterCondition{
+							{Field: "category", Value: "web"},
+						},
 					},
 				},
 			},
@@ -1417,9 +1282,14 @@ func TestMultiSearchParallel(t *testing.T) {
 				RestrictSearchableFields: []string{"content"},
 			},
 			{
-				Name:    "filtered_search",
-				Query:   "matrix",
-				Filters: map[string]interface{}{"category": "movie"},
+				Name:  "filtered_search",
+				Query: "matrix",
+				Filters: &services.Filters{
+					Operator: "AND",
+					Filters: []services.FilterCondition{
+						{Field: "category", Value: "movie"},
+					},
+				},
 			},
 		},
 		Page:     1,
@@ -1485,4 +1355,1031 @@ func TestMultiSearchContextCancellation(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "multi-search cancelled")
+}
+
+// TestTypoToleranceOptimization tests the optimization where documents with exact matches
+// for all query tokens skip typo processing, and verifies correct hit info reporting.
+func TestTypoToleranceOptimization(t *testing.T) {
+	// Create test documents
+	docs := []model.Document{
+		{
+			"documentID": "exact_match_doc",
+			"title":      "The Office Show",
+			"castNames":  []string{"Steve Carell", "John Krasinski"},
+			"crewNames":  []string{"Greg Daniels", "Michael Schur"},
+		},
+		{
+			"documentID": "typo_match_doc",
+			"title":      "The Offic Comedy", // "offic" is a typo for "office"
+			"castNames":  []string{"Steve Carell"},
+			"crewNames":  []string{"Greg Daniels"},
+		},
+		{
+			"documentID": "partial_exact_doc",
+			"title":      "The Officer Training", // has "the" exactly, "officer" as typo for "office"
+			"castNames":  []string{"John Smith"},
+			"crewNames":  []string{"Jane Doe"},
+		},
+	}
+
+	// Set up service with specific settings
+	settings := &config.IndexSettings{
+		Name:                      "typo_test_index",
+		SearchableFields:          []string{"title", "castNames", "crewNames"},
+		FilterableFields:          []string{},
+		RankingCriteria:           []config.RankingCriterion{{Field: "~score", Order: "desc"}},
+		MinWordSizeFor1Typo:       4, // "office" (6 chars) qualifies for 1 typo
+		MinWordSizeFor2Typos:      7, // "office" (6 chars) doesn't qualify for 2 typos
+		FieldsWithoutPrefixSearch: []string{},
+	}
+
+	service, indexer := setupTestSearchService(t, settings)
+
+	// Add documents to index
+	err := indexer.AddDocuments(docs)
+	assert.NoError(t, err, "Failed to add documents")
+
+	t.Run("exact matches skip typo processing", func(t *testing.T) {
+		// Search for "the office" - should find exact matches and skip typo processing for those docs
+		query := services.SearchQuery{
+			QueryString: "the office",
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+		assert.Greater(t, result.Total, 0, "Should find at least one result")
+
+		// Find the exact match document
+		var exactMatchHit *services.HitResult
+		var typoMatchHit *services.HitResult
+
+		for i := range result.Hits {
+			hit := &result.Hits[i]
+			docID := hit.Document["documentID"].(string)
+			switch docID {
+			case "exact_match_doc":
+				exactMatchHit = hit
+			case "typo_match_doc":
+				typoMatchHit = hit
+			}
+		}
+
+		// Verify exact match document
+		if exactMatchHit != nil {
+			assert.Equal(t, 0, exactMatchHit.Info.NumTypos, "Exact match doc should have 0 typos")
+			assert.Equal(t, 2, exactMatchHit.Info.NumberExactWords, "Exact match doc should have 2 exact words")
+
+			// Verify field matches show exact terms (no "(typo)" suffix)
+			for fieldName, matches := range exactMatchHit.FieldMatches {
+				for _, match := range matches {
+					assert.NotContains(t, match, "(typo)", "Exact matches should not have (typo) suffix in field %s", fieldName)
+				}
+			}
+		}
+
+		// Verify typo match document (if found)
+		if typoMatchHit != nil {
+			assert.Greater(t, typoMatchHit.Info.NumTypos, 0, "Typo match doc should have typos > 0")
+
+			// Should show actual typo terms matched
+			foundTypoTerm := false
+			for fieldName, matches := range typoMatchHit.FieldMatches {
+				for _, match := range matches {
+					if strings.Contains(match, "(typo)") {
+						foundTypoTerm = true
+						// Should show the actual typo term, not the original query term
+						assert.True(t, strings.HasPrefix(match, "offic(typo)") || strings.HasPrefix(match, "offici(typo)"),
+							"Typo match should show actual typo term in field %s, got: %s", fieldName, match)
+					}
+				}
+			}
+			assert.True(t, foundTypoTerm, "Should find at least one typo term in field matches")
+		}
+	})
+
+	t.Run("single token exact match optimization", func(t *testing.T) {
+		// Search for just "office" - should find exact match and skip typo processing
+		query := services.SearchQuery{
+			QueryString: "office",
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+
+		// Find the exact match document
+		var exactMatchHit *services.HitResult
+		for i := range result.Hits {
+			hit := &result.Hits[i]
+			if hit.Document["documentID"].(string) == "exact_match_doc" {
+				exactMatchHit = hit
+				break
+			}
+		}
+
+		if exactMatchHit != nil {
+			assert.Equal(t, 0, exactMatchHit.Info.NumTypos, "Single token exact match should have 0 typos")
+			assert.Equal(t, 1, exactMatchHit.Info.NumberExactWords, "Single token exact match should have 1 exact word")
+		}
+	})
+
+	t.Run("typo terms display correctly", func(t *testing.T) {
+		// Search for a term that will generate typos
+		query := services.SearchQuery{
+			QueryString: "offic", // This should match "office" via typo tolerance
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+
+		if result.Total > 0 {
+			// At least one hit should show typo information
+			foundTypoHit := false
+			for _, hit := range result.Hits {
+				if hit.Info.NumTypos > 0 {
+					foundTypoHit = true
+
+					// Verify that field matches show the actual typo term
+					foundTypoInFieldMatches := false
+					for fieldName, matches := range hit.FieldMatches {
+						for _, match := range matches {
+							if strings.Contains(match, "(typo)") {
+								foundTypoInFieldMatches = true
+								// Should not show "offic(typo)" but rather the actual matched term like "office(typo)"
+								assert.NotEqual(t, "offic(typo)", match,
+									"Should show actual matched typo term, not query term in field %s", fieldName)
+							}
+						}
+					}
+					assert.True(t, foundTypoInFieldMatches, "Typo hit should have typo terms in field matches")
+				}
+			}
+			// Note: This assertion might not always pass depending on the indexed terms
+			// but it's useful for verification when typos are found
+			if !foundTypoHit {
+				t.Log("No typo hits found - this may be expected depending on indexed terms")
+			}
+		}
+	})
+
+	t.Run("mixed exact and typo matches", func(t *testing.T) {
+		// Search for terms where some docs have exact matches and others need typos
+		query := services.SearchQuery{
+			QueryString: "the offic", // "the" exact, "offic" needs typo tolerance
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+
+		// Verify that we get different hit info for different documents
+		exactMatchCount := 0
+		typoMatchCount := 0
+
+		for _, hit := range result.Hits {
+			if hit.Info.NumTypos == 0 && hit.Info.NumberExactWords > 0 {
+				exactMatchCount++
+			} else if hit.Info.NumTypos > 0 {
+				typoMatchCount++
+			}
+		}
+
+		// We should have at least some results
+		assert.Greater(t, exactMatchCount+typoMatchCount, 0, "Should have at least some matches")
+
+		// Log the distribution for debugging
+		t.Logf("Found %d exact matches and %d typo matches", exactMatchCount, typoMatchCount)
+	})
+
+	t.Run("performance optimization verification", func(t *testing.T) {
+		// This test verifies that the optimization is working by checking that
+		// documents with all exact matches don't get typo processing
+
+		// Add a document that would match exactly
+		perfTestDoc := model.Document{
+			"documentID": "perf_test_doc",
+			"title":      "Performance Test Document",
+			"castNames":  []string{"Test Actor"},
+			"crewNames":  []string{"Test Director"},
+		}
+
+		err := indexer.AddDocuments([]model.Document{perfTestDoc})
+		assert.NoError(t, err, "Failed to add performance test document")
+
+		// Search for exact terms
+		query := services.SearchQuery{
+			QueryString: "performance test",
+			PageSize:    10,
+		}
+
+		startTime := time.Now()
+		result, err := service.Search(query)
+		duration := time.Since(startTime)
+
+		assert.NoError(t, err, "Search should not error")
+		assert.Greater(t, result.Total, 0, "Should find the performance test document")
+
+		// Find our test document
+		var testHit *services.HitResult
+		for i := range result.Hits {
+			hit := &result.Hits[i]
+			if hit.Document["documentID"].(string) == "perf_test_doc" {
+				testHit = hit
+				break
+			}
+		}
+
+		if testHit != nil {
+			assert.Equal(t, 0, testHit.Info.NumTypos, "Performance test doc should have 0 typos")
+			assert.Equal(t, 2, testHit.Info.NumberExactWords, "Performance test doc should have 2 exact words")
+		}
+
+		// The search should complete reasonably quickly (this is a rough performance check)
+		assert.Less(t, duration.Milliseconds(), int64(1000), "Search should complete within 1 second")
+
+		t.Logf("Search completed in %v", duration)
+	})
+}
+
+// TestOriginalIssueScenario tests the specific scenario from the original issue:
+// searching for "the office" should not show "office(typo)" for documents that have exact matches.
+func TestOriginalIssueScenario(t *testing.T) {
+	// Create documents similar to the original issue
+	docs := []model.Document{
+		{
+			"documentID":      "office_show_doc",
+			"title":           "The Office",
+			"castNames":       []string{"Steve Carell", "John Krasinski", "Jenna Fischer"},
+			"crewNames":       []string{"Greg Daniels", "Michael Schur"},
+			"aiSynonymsTitle": "workplace comedy sitcom", // This should NOT be searched
+		},
+		{
+			"documentID": "office_building_doc",
+			"title":      "Office Building Management",
+			"castNames":  []string{"John Smith"},
+			"crewNames":  []string{"Jane Doe"},
+		},
+		{
+			"documentID": "officer_doc",
+			"title":      "Police Officer Training", // "officer" might match "office" via typo
+			"castNames":  []string{"Tom Hanks"},
+			"crewNames":  []string{"Steven Spielberg"},
+		},
+	}
+
+	// Use the same searchable fields as mentioned in the conversation summary
+	settings := &config.IndexSettings{
+		Name:                      "original_issue_test_index",
+		SearchableFields:          []string{"title", "castNames", "crewNames"}, // Note: aiSynonymsTitle is NOT included
+		FilterableFields:          []string{},
+		RankingCriteria:           []config.RankingCriterion{{Field: "~score", Order: "desc"}},
+		MinWordSizeFor1Typo:       4,
+		MinWordSizeFor2Typos:      7,
+		FieldsWithoutPrefixSearch: []string{},
+	}
+
+	service, indexer := setupTestSearchService(t, settings)
+
+	// Add documents to index
+	err := indexer.AddDocuments(docs)
+	assert.NoError(t, err, "Failed to add documents")
+
+	t.Run("the office search - exact matches should not show typo markers", func(t *testing.T) {
+		query := services.SearchQuery{
+			QueryString: "the office",
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+		assert.Greater(t, result.Total, 0, "Should find at least one result")
+
+		// Check each hit
+		for _, hit := range result.Hits {
+			docID := hit.Document["documentID"].(string)
+
+			// For documents that have exact matches for both "the" and "office"
+			if docID == "office_show_doc" || docID == "office_building_doc" {
+				// These should have exact matches, not typo matches
+				assert.Equal(t, 0, hit.Info.NumTypos, "Document %s should have 0 typos", docID)
+				assert.Equal(t, 2, hit.Info.NumberExactWords, "Document %s should have 2 exact words", docID)
+
+				// Verify field matches don't contain incorrect typo markers
+				for fieldName, matches := range hit.FieldMatches {
+					for _, match := range matches {
+						// The original issue was seeing "office(typo)" when it should be just "office"
+						assert.NotEqual(t, "office(typo)", match,
+							"Document %s field %s should not show 'office(typo)' for exact matches, got: %s",
+							docID, fieldName, match)
+
+						// Should not have any typo markers for exact matches
+						if match == "office" || match == "the" {
+							assert.NotContains(t, match, "(typo)",
+								"Exact match '%s' should not have typo marker in document %s field %s",
+								match, docID, fieldName)
+						}
+					}
+				}
+			}
+		}
+	})
+
+	t.Run("verify aiSynonymsTitle is not searched", func(t *testing.T) {
+		// Search for terms that exist in aiSynonymsTitle but not in searchable fields
+		query := services.SearchQuery{
+			QueryString: "workplace comedy sitcom",
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+
+		// Should not find the office_show_doc because aiSynonymsTitle is not in searchable fields
+		for _, hit := range result.Hits {
+			docID := hit.Document["documentID"].(string)
+			assert.NotEqual(t, "office_show_doc", docID,
+				"Should not find office_show_doc when searching aiSynonymsTitle content")
+		}
+	})
+
+	t.Run("typo tolerance still works for appropriate cases", func(t *testing.T) {
+		// Search for "offic" which should match "office" via typo tolerance
+		query := services.SearchQuery{
+			QueryString: "offic",
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+
+		// Should find documents via typo tolerance
+		if result.Total > 0 {
+			foundTypoMatch := false
+			for _, hit := range result.Hits {
+				if hit.Info.NumTypos > 0 {
+					foundTypoMatch = true
+
+					// Verify the typo term is displayed correctly
+					for fieldName, matches := range hit.FieldMatches {
+						for _, match := range matches {
+							if strings.Contains(match, "(typo)") {
+								// Should show the actual matched term, not the query term
+								assert.NotEqual(t, "offic(typo)", match,
+									"Should show actual matched typo term, not query term in field %s", fieldName)
+							}
+						}
+					}
+				}
+			}
+
+			if foundTypoMatch {
+				t.Log("Successfully found typo matches for 'offic' query")
+			} else {
+				t.Log("No typo matches found - may be expected depending on indexed terms")
+			}
+		}
+	})
+}
+
+// TestRankingCriteriaPriority tests that ranking criteria are applied before search relevance scores
+func TestRankingCriteriaPriority(t *testing.T) {
+	// Create documents with different ranking values but similar search relevance
+	docs := []model.Document{
+		{
+			"documentID":  "high_rank_doc",
+			"title":       "Office Management",
+			"rankingSort": 9.5,
+			"popularity":  100.0,
+		},
+		{
+			"documentID":  "low_rank_doc",
+			"title":       "Office Building",
+			"rankingSort": 3.2,
+			"popularity":  50.0,
+		},
+		{
+			"documentID":  "mid_rank_doc",
+			"title":       "Office Space",
+			"rankingSort": 6.8,
+			"popularity":  75.0,
+		},
+	}
+
+	t.Run("ranking criteria prioritized over search score", func(t *testing.T) {
+		// Set up service with rankingSort as primary criterion
+		settings := &config.IndexSettings{
+			Name:             "ranking_test_index",
+			SearchableFields: []string{"title"},
+			FilterableFields: []string{},
+			RankingCriteria: []config.RankingCriterion{
+				{Field: "rankingSort", Order: "desc"}, // Primary: rankingSort descending
+				{Field: "~score", Order: "desc"},      // Secondary: search relevance
+			},
+			MinWordSizeFor1Typo:       4,
+			MinWordSizeFor2Typos:      7,
+			FieldsWithoutPrefixSearch: []string{},
+		}
+
+		service, indexer := setupTestSearchService(t, settings)
+		err := indexer.AddDocuments(docs)
+		assert.NoError(t, err, "Failed to add documents")
+
+		// Search for "office" - all documents should match with similar relevance
+		query := services.SearchQuery{
+			QueryString: "office",
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+		assert.Equal(t, 3, result.Total, "Should find all 3 documents")
+
+		// Verify documents are sorted by rankingSort descending, not by search score
+		expectedOrder := []string{"high_rank_doc", "mid_rank_doc", "low_rank_doc"}
+		for i, hit := range result.Hits {
+			docID := hit.Document["documentID"].(string)
+			assert.Equal(t, expectedOrder[i], docID,
+				"Document at position %d should be %s, got %s", i, expectedOrder[i], docID)
+		}
+
+		// Verify that all documents have similar search scores (since they all match "office")
+		// but are ordered by rankingSort
+		t.Logf("Search scores: %v", []float64{result.Hits[0].Score, result.Hits[1].Score, result.Hits[2].Score})
+		t.Logf("Ranking sorts: %v", []float64{
+			result.Hits[0].Document["rankingSort"].(float64),
+			result.Hits[1].Document["rankingSort"].(float64),
+			result.Hits[2].Document["rankingSort"].(float64),
+		})
+	})
+
+	t.Run("~score criterion works correctly", func(t *testing.T) {
+		// Set up service with ~score as primary criterion
+		settings := &config.IndexSettings{
+			Name:             "score_test_index",
+			SearchableFields: []string{"title"},
+			FilterableFields: []string{},
+			RankingCriteria: []config.RankingCriterion{
+				{Field: "~score", Order: "desc"},      // Primary: search relevance
+				{Field: "rankingSort", Order: "desc"}, // Secondary: rankingSort
+			},
+			MinWordSizeFor1Typo:       4,
+			MinWordSizeFor2Typos:      7,
+			FieldsWithoutPrefixSearch: []string{},
+		}
+
+		service, indexer := setupTestSearchService(t, settings)
+		err := indexer.AddDocuments(docs)
+		assert.NoError(t, err, "Failed to add documents")
+
+		// Search for "office"
+		query := services.SearchQuery{
+			QueryString: "office",
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+		assert.Equal(t, 3, result.Total, "Should find all 3 documents")
+
+		// With ~score as primary criterion, should sort by search relevance first
+		// Since all have similar relevance, should then sort by rankingSort
+		// This should produce the same order as the previous test since search scores are similar
+		for i := 0; i < len(result.Hits)-1; i++ {
+			currentScore := result.Hits[i].Score
+			nextScore := result.Hits[i+1].Score
+
+			if currentScore == nextScore {
+				// If search scores are equal, should be sorted by rankingSort desc
+				currentRanking := result.Hits[i].Document["rankingSort"].(float64)
+				nextRanking := result.Hits[i+1].Document["rankingSort"].(float64)
+				assert.GreaterOrEqual(t, currentRanking, nextRanking,
+					"When search scores are equal, should sort by rankingSort descending")
+			} else {
+				// Search scores should be in descending order
+				assert.Greater(t, currentScore, nextScore,
+					"Search scores should be in descending order")
+			}
+		}
+	})
+
+	t.Run("multiple ranking criteria applied in order", func(t *testing.T) {
+		// Add documents with same rankingSort but different popularity
+		docsWithTies := []model.Document{
+			{
+				"documentID":  "tie_doc_1",
+				"title":       "Office Work",
+				"rankingSort": 5.0,  // Same ranking
+				"popularity":  90.0, // Higher popularity
+			},
+			{
+				"documentID":  "tie_doc_2",
+				"title":       "Office Work",
+				"rankingSort": 5.0,  // Same ranking
+				"popularity":  60.0, // Lower popularity
+			},
+		}
+
+		settings := &config.IndexSettings{
+			Name:             "multi_criteria_test_index",
+			SearchableFields: []string{"title"},
+			FilterableFields: []string{},
+			RankingCriteria: []config.RankingCriterion{
+				{Field: "rankingSort", Order: "desc"}, // Primary
+				{Field: "popularity", Order: "desc"},  // Secondary
+				{Field: "~score", Order: "desc"},      // Tertiary
+			},
+			MinWordSizeFor1Typo:       4,
+			MinWordSizeFor2Typos:      7,
+			FieldsWithoutPrefixSearch: []string{},
+		}
+
+		service, indexer := setupTestSearchService(t, settings)
+		err := indexer.AddDocuments(docsWithTies)
+		assert.NoError(t, err, "Failed to add documents")
+
+		query := services.SearchQuery{
+			QueryString: "office",
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+		assert.Equal(t, 2, result.Total, "Should find both documents")
+
+		// Since rankingSort is the same, should sort by popularity desc
+		assert.Equal(t, "tie_doc_1", result.Hits[0].Document["documentID"].(string),
+			"Document with higher popularity should come first")
+		assert.Equal(t, "tie_doc_2", result.Hits[1].Document["documentID"].(string),
+			"Document with lower popularity should come second")
+	})
+}
+
+// TestExactMatchesScoreHigherThanTypos verifies that documents with exact matches
+// always get higher search relevance scores than documents with typo matches
+func TestExactMatchesScoreHigherThanTypos(t *testing.T) {
+	docs := []model.Document{
+		{
+			"documentID":  "exact_match_doc",
+			"title":       "The Office Show",
+			"rankingSort": 5.0, // Same ranking to isolate score comparison
+		},
+		{
+			"documentID":  "typo_match_doc",
+			"title":       "The Offic Building", // "offic" is a 1-typo match for "office"
+			"rankingSort": 5.0,                  // Same ranking to isolate score comparison
+		},
+		{
+			"documentID":  "multiple_typo_doc",
+			"title":       "The Offce Space", // "offce" is a 1-typo match for "office"
+			"rankingSort": 5.0,               // Same ranking to isolate score comparison
+		},
+	}
+
+	settings := &config.IndexSettings{
+		Name:             "score_test_index",
+		SearchableFields: []string{"title"},
+		FilterableFields: []string{},
+		RankingCriteria: []config.RankingCriterion{
+			{Field: "~score", Order: "desc"}, // Sort by search relevance to test scoring
+		},
+		MinWordSizeFor1Typo:       4,
+		MinWordSizeFor2Typos:      7,
+		FieldsWithoutPrefixSearch: []string{},
+	}
+
+	service, indexer := setupTestSearchService(t, settings)
+	err := indexer.AddDocuments(docs)
+	assert.NoError(t, err, "Failed to add documents")
+
+	// Search for "the office"
+	query := services.SearchQuery{
+		QueryString: "the office",
+		PageSize:    10,
+	}
+
+	result, err := service.Search(query)
+	assert.NoError(t, err, "Search should not error")
+
+	// Log what we actually found for debugging
+	t.Logf("Found %d documents:", result.Total)
+	for i, hit := range result.Hits {
+		t.Logf("  %d. %s (score: %.2f, typos: %d, exact: %d)",
+			i+1, hit.Document["documentID"], hit.Score, hit.Info.NumTypos, hit.Info.NumberExactWords)
+	}
+
+	// We should find at least the exact match
+	assert.GreaterOrEqual(t, result.Total, 1, "Should find at least the exact match document")
+
+	// Find each document in results
+	var exactMatchHit *services.HitResult
+	var typoMatchHit *services.HitResult
+	var multipleTypoHit *services.HitResult
+
+	for i := range result.Hits {
+		hit := &result.Hits[i]
+		docID := hit.Document["documentID"].(string)
+		switch docID {
+		case "exact_match_doc":
+			exactMatchHit = hit
+		case "typo_match_doc":
+			typoMatchHit = hit
+		case "multiple_typo_doc":
+			multipleTypoHit = hit
+		}
+	}
+
+	// Verify exact match was found
+	assert.NotNil(t, exactMatchHit, "Should find exact match document")
+	if exactMatchHit == nil {
+		return // Exit early if exact match not found
+	}
+
+	// Log scores for debugging
+	t.Logf("Exact match score: %.2f (typos: %d, exact: %d)",
+		exactMatchHit.Score, exactMatchHit.Info.NumTypos, exactMatchHit.Info.NumberExactWords)
+
+	if typoMatchHit != nil {
+		t.Logf("Typo match score: %.2f (typos: %d, exact: %d)",
+			typoMatchHit.Score, typoMatchHit.Info.NumTypos, typoMatchHit.Info.NumberExactWords)
+
+		// CRITICAL: Exact matches should ALWAYS score higher than typo matches
+		assert.Greater(t, exactMatchHit.Score, typoMatchHit.Score,
+			"Exact match should score higher than typo match")
+	}
+
+	if multipleTypoHit != nil {
+		t.Logf("Multiple typo score: %.2f (typos: %d, exact: %d)",
+			multipleTypoHit.Score, multipleTypoHit.Info.NumTypos, multipleTypoHit.Info.NumberExactWords)
+
+		assert.Greater(t, exactMatchHit.Score, multipleTypoHit.Score,
+			"Exact match should score higher than multiple typo matches")
+	}
+
+	// Verify hit info is correct for exact match
+	assert.Equal(t, 0, exactMatchHit.Info.NumTypos, "Exact match should have 0 typos")
+	assert.Equal(t, 2, exactMatchHit.Info.NumberExactWords, "Exact match should have 2 exact words")
+
+	// If we found typo matches, verify their hit info
+	if typoMatchHit != nil {
+		assert.Greater(t, typoMatchHit.Info.NumTypos, 0, "Typo match should have > 0 typos")
+		assert.Equal(t, 1, typoMatchHit.Info.NumberExactWords, "Typo match should have 1 exact word ('the')")
+	}
+
+	// Verify that the exact match appears first when sorted by score
+	assert.Equal(t, "exact_match_doc", result.Hits[0].Document["documentID"].(string),
+		"Exact match should appear first when sorted by search relevance")
+}
+
+// TestScoringWithKnownTypos tests scoring with documents that we know will match via typos
+func TestScoringWithKnownTypos(t *testing.T) {
+	docs := []model.Document{
+		{
+			"documentID":  "exact_match",
+			"title":       "office work",
+			"rankingSort": 5.0,
+		},
+		{
+			"documentID":  "typo_match_1",
+			"title":       "offic work", // 1-char deletion typo
+			"rankingSort": 5.0,
+		},
+		{
+			"documentID":  "typo_match_2",
+			"title":       "oficce work", // 1-char insertion typo
+			"rankingSort": 5.0,
+		},
+	}
+
+	settings := &config.IndexSettings{
+		Name:             "typo_score_test",
+		SearchableFields: []string{"title"},
+		FilterableFields: []string{},
+		RankingCriteria: []config.RankingCriterion{
+			{Field: "~score", Order: "desc"}, // Sort by search relevance
+		},
+		MinWordSizeFor1Typo:       4,
+		MinWordSizeFor2Typos:      7,
+		FieldsWithoutPrefixSearch: []string{},
+	}
+
+	service, indexer := setupTestSearchService(t, settings)
+	err := indexer.AddDocuments(docs)
+	assert.NoError(t, err, "Failed to add documents")
+
+	// Search for "office work"
+	query := services.SearchQuery{
+		QueryString: "office work",
+		PageSize:    10,
+	}
+
+	result, err := service.Search(query)
+	assert.NoError(t, err, "Search should not error")
+
+	// Log results for debugging
+	t.Logf("Found %d documents for 'office work':", result.Total)
+	for i, hit := range result.Hits {
+		t.Logf("  %d. %s: '%s' (score: %.2f, typos: %d, exact: %d)",
+			i+1, hit.Document["documentID"], hit.Document["title"],
+			hit.Score, hit.Info.NumTypos, hit.Info.NumberExactWords)
+	}
+
+	// Should find at least the exact match
+	assert.GreaterOrEqual(t, result.Total, 1, "Should find at least one document")
+
+	// Find the exact match
+	var exactMatch *services.HitResult
+	for i := range result.Hits {
+		if result.Hits[i].Document["documentID"] == "exact_match" {
+			exactMatch = &result.Hits[i]
+			break
+		}
+	}
+
+	assert.NotNil(t, exactMatch, "Should find exact match document")
+	if exactMatch == nil {
+		return // Exit early if exact match not found
+	}
+	assert.Equal(t, 0, exactMatch.Info.NumTypos, "Exact match should have 0 typos")
+	assert.Equal(t, 2, exactMatch.Info.NumberExactWords, "Exact match should have 2 exact words")
+
+	// Check if any typo matches were found
+	var typoMatches []*services.HitResult
+	for i := range result.Hits {
+		if result.Hits[i].Info.NumTypos > 0 {
+			typoMatches = append(typoMatches, &result.Hits[i])
+		}
+	}
+
+	if len(typoMatches) > 0 {
+		t.Logf("Found %d typo matches", len(typoMatches))
+		for _, typoMatch := range typoMatches {
+			// CRITICAL TEST: Exact match should always score higher than typo matches
+			assert.Greater(t, exactMatch.Score, typoMatch.Score,
+				"Exact match (%.2f) should score higher than typo match %s (%.2f)",
+				exactMatch.Score, typoMatch.Document["documentID"], typoMatch.Score)
+		}
+
+		// Verify exact match appears first in results (since sorted by score desc)
+		assert.Equal(t, "exact_match", result.Hits[0].Document["documentID"],
+			"Exact match should appear first when sorted by search relevance")
+	} else {
+		t.Log("No typo matches found - this is okay, the test still validates exact match scoring")
+	}
+}
+
+// TestFilters tests the new complex filter expressions with AND/OR logic
+func TestFilters(t *testing.T) {
+	// Create test documents with various filter values
+	docs := []model.Document{
+		{
+			"documentID":     "movie1",
+			"title":          "Action Movie",
+			"genre":          "Action",
+			"year":           2023,
+			"rating":         8.5,
+			"is_premium":     true,
+			"filters":        []interface{}{"plat_pc_dev_computer", "prop_nbcuott", "content_format_longform"},
+			"suggestionType": "programme",
+		},
+		{
+			"documentID":     "movie2",
+			"title":          "Comedy Movie",
+			"genre":          "Comedy",
+			"year":           2022,
+			"rating":         7.5,
+			"is_premium":     false,
+			"filters":        []interface{}{"plat_dev_all", "prop_all", "content_format_trailer"},
+			"suggestionType": "series",
+		},
+		{
+			"documentID":     "movie3",
+			"title":          "Drama Movie",
+			"genre":          "Drama",
+			"year":           2021,
+			"rating":         9.0,
+			"is_premium":     true,
+			"filters":        []interface{}{"plat_pc_dev_computer", "prop_nbcuott", "content_format_longform"},
+			"suggestionType": "programme",
+		},
+	}
+
+	// Create service with filter expression support
+	settings := &config.IndexSettings{
+		Name:             "filter_expression_test",
+		SearchableFields: []string{"title", "genre"},
+		FilterableFields: []string{"genre", "year", "rating", "is_premium", "filters", "suggestionType"},
+		RankingCriteria: []config.RankingCriterion{
+			{Field: "~filters", Order: "desc"},
+			{Field: "~score", Order: "desc"},
+		},
+		MinWordSizeFor1Typo:       4,
+		MinWordSizeFor2Typos:      7,
+		FieldsWithoutPrefixSearch: []string{},
+	}
+
+	service, indexer := setupTestSearchService(t, settings)
+	err := indexer.AddDocuments(docs)
+	assert.NoError(t, err, "Failed to add documents")
+
+	t.Run("simple OR filter expression", func(t *testing.T) {
+		// Test OR logic: match documents with either Action OR Comedy genre
+		filterExpr := &services.Filters{
+			Operator: "OR",
+			Filters: []services.FilterCondition{
+				{Field: "genre", Value: "Action", Score: 2.0},
+				{Field: "genre", Value: "Comedy", Score: 1.5},
+			},
+		}
+
+		query := services.SearchQuery{
+			QueryString: "movie",
+			Filters:     filterExpr,
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+
+		// Should find movie1 (Action) and movie2 (Comedy)
+		assert.Equal(t, 2, result.Total, "Should find 2 documents matching OR condition")
+
+		// Check filter scores
+		for _, hit := range result.Hits {
+			genre := hit.Document["genre"].(string)
+			switch genre {
+			case "Action":
+				assert.Equal(t, 2.0, hit.Info.FilterScore, "Action movie should have filter score 2.0")
+			case "Comedy":
+				assert.Equal(t, 1.5, hit.Info.FilterScore, "Comedy movie should have filter score 1.5")
+			}
+		}
+	})
+
+	t.Run("simple AND filter expression", func(t *testing.T) {
+		// Test AND logic: match documents with Action genre AND premium status
+		filterExpr := &services.Filters{
+			Operator: "AND",
+			Filters: []services.FilterCondition{
+				{Field: "genre", Value: "Action", Score: 2.0},
+				{Field: "is_premium", Value: true, Score: 3.0},
+			},
+		}
+
+		query := services.SearchQuery{
+			QueryString: "movie",
+			Filters:     filterExpr,
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+
+		// Should find only movie1 (Action AND premium)
+		assert.Equal(t, 1, result.Total, "Should find 1 document matching AND condition")
+
+		hit := result.Hits[0]
+		assert.Equal(t, "movie1", hit.Document["documentID"], "Should find movie1")
+		assert.Equal(t, 5.0, hit.Info.FilterScore, "Filter score should be 2.0 + 3.0 = 5.0")
+	})
+
+	t.Run("complex nested filter expression", func(t *testing.T) {
+		// Test complex expression: (Action OR Comedy) AND (premium OR high rating)
+		filterExpr := &services.Filters{
+			Operator: "AND",
+			Groups: []services.Filters{
+				{
+					Operator: "OR",
+					Filters: []services.FilterCondition{
+						{Field: "genre", Value: "Action", Score: 2.0},
+						{Field: "genre", Value: "Comedy", Score: 1.5},
+					},
+				},
+				{
+					Operator: "OR",
+					Filters: []services.FilterCondition{
+						{Field: "is_premium", Value: true, Score: 3.0},
+						{Field: "rating", Operator: "_gte", Value: 8.0, Score: 2.5},
+					},
+				},
+			},
+		}
+
+		query := services.SearchQuery{
+			QueryString: "movie",
+			Filters:     filterExpr,
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+
+		// Should find:
+		// - movie1: Action (2.0) + premium (3.0) + rating >= 8.0 (2.5) = 7.5
+		//   (both conditions in the second OR group match: premium AND high rating)
+		// - movie2: Comedy (1.5) + rating 7.5 (doesn't match >= 8.0) + not premium = only Comedy matches, so no second group match = fails AND
+		// Actually, movie2 should NOT match because it doesn't satisfy the second AND group
+		// Only movie1 should match
+		assert.Equal(t, 1, result.Total, "Should find 1 document matching complex condition")
+
+		hit := result.Hits[0]
+		assert.Equal(t, "movie1", hit.Document["documentID"], "Should find movie1")
+		assert.Equal(t, 7.5, hit.Info.FilterScore, "Filter score should be 2.0 + 3.0 + 2.5 = 7.5 (both OR conditions in second group match)")
+	})
+
+	t.Run("array field contains with scoring", func(t *testing.T) {
+		// Test array contains with OR logic and scoring
+		filterExpr := &services.Filters{
+			Operator: "OR",
+			Filters: []services.FilterCondition{
+				{Field: "filters", Operator: "_contains", Value: "plat_pc_dev_computer", Score: 2.0},
+				{Field: "filters", Operator: "_contains", Value: "plat_dev_all", Score: 1.0},
+			},
+		}
+
+		query := services.SearchQuery{
+			QueryString: "movie",
+			Filters:     filterExpr,
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+
+		// Should find movie1 and movie3 (both have plat_pc_dev_computer) and movie2 (has plat_dev_all)
+		assert.Equal(t, 3, result.Total, "Should find 3 documents matching array contains")
+
+		for _, hit := range result.Hits {
+			filters := hit.Document["filters"].([]interface{})
+			containsPc := false
+			containsAll := false
+			for _, filter := range filters {
+				if filterStr, ok := filter.(string); ok {
+					if filterStr == "plat_pc_dev_computer" {
+						containsPc = true
+					}
+					if filterStr == "plat_dev_all" {
+						containsAll = true
+					}
+				}
+			}
+
+			if containsPc {
+				assert.Equal(t, 2.0, hit.Info.FilterScore, "Documents with plat_pc_dev_computer should have filter score 2.0")
+			} else if containsAll {
+				assert.Equal(t, 1.0, hit.Info.FilterScore, "Documents with plat_dev_all should have filter score 1.0")
+			}
+		}
+	})
+
+	t.Run("algolia-inspired complex expression", func(t *testing.T) {
+		// Inspired by the Algolia query: multiple OR conditions within an AND structure
+		filterExpr := &services.Filters{
+			Operator: "AND",
+			Groups: []services.Filters{
+				{
+					Operator: "OR",
+					Filters: []services.FilterCondition{
+						{Field: "suggestionType", Value: "programme", Score: 0.5},
+						{Field: "suggestionType", Value: "series", Score: 0.5},
+					},
+				},
+				{
+					Operator: "OR",
+					Filters: []services.FilterCondition{
+						{Field: "filters", Operator: "_contains", Value: "plat_pc_dev_computer", Score: 1.0},
+						{Field: "filters", Operator: "_contains", Value: "plat_dev_all", Score: 1.0},
+					},
+				},
+				{
+					Operator: "OR",
+					Filters: []services.FilterCondition{
+						{Field: "filters", Operator: "_contains", Value: "prop_nbcuott", Score: 0.8},
+						{Field: "filters", Operator: "_contains", Value: "prop_all", Score: 0.8},
+					},
+				},
+			},
+		}
+
+		query := services.SearchQuery{
+			QueryString: "movie",
+			Filters:     filterExpr,
+			PageSize:    10,
+		}
+
+		result, err := service.Search(query)
+		assert.NoError(t, err, "Search should not error")
+
+		// All documents should match this complex expression
+		assert.Equal(t, 3, result.Total, "Should find all 3 documents matching complex Algolia-style expression")
+
+		// Check that all have appropriate filter scores
+		for _, hit := range result.Hits {
+			assert.Greater(t, hit.Info.FilterScore, 0.0, "All documents should have positive filter scores")
+			// Each document should have at least 0.5 + 1.0 + 0.8 = 2.3 points
+			assert.GreaterOrEqual(t, hit.Info.FilterScore, 2.3, "All documents should have at least 2.3 filter score")
+		}
+	})
+
 }

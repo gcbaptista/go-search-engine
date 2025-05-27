@@ -8,8 +8,9 @@ import (
 // HitInfo contains metadata about a search hit, like typo counts and exact matches.
 // This will be embedded in HitResult.
 type HitInfo struct {
-	NumTypos         int `json:"num_typos"`          // Number of original query terms that matched via typo correction
-	NumberExactWords int `json:"number_exact_words"` // Number of original query terms that matched exactly (not via typo)
+	NumTypos         int     `json:"num_typos"`          // Number of original query terms that matched via typo correction
+	NumberExactWords int     `json:"number_exact_words"` // Number of original query terms that matched exactly (not via typo)
+	FilterScore      float64 `json:"filter_score"`       // Score from filter expression matching
 }
 
 // HitResult represents a single document in the search results,
@@ -32,11 +33,11 @@ type SearchResult struct {
 
 type SearchQuery struct {
 	QueryString              string
-	Filters                  map[string]interface{} // e.g., {"genre": "Action", "year_gt": 2000}
+	Filters                  *Filters `json:"filters,omitempty"` // Complex filter expressions
 	Page                     int
 	PageSize                 int
 	RestrictSearchableFields []string `json:"restrict_searchable_fields,omitempty"` // Optional: subset of searchable fields to search in
-	RetrivableFields         []string `json:"retrivable_fields,omitempty"`          // Optional: subset of document fields to return in results
+	RetrievableFields        []string `json:"retrievable_fields,omitempty"`         // Optional: subset of document fields to return in results
 	MinWordSizeFor1Typo      *int     `json:"min_word_size_for_1_typo,omitempty"`   // Optional: override index setting for minimum word size for 1 typo
 	MinWordSizeFor2Typos     *int     `json:"min_word_size_for_2_typos,omitempty"`  // Optional: override index setting for minimum word size for 2 typos
 }
@@ -50,13 +51,13 @@ type MultiSearchQuery struct {
 
 // NamedSearchQuery represents a single named search query within a multi-search request
 type NamedSearchQuery struct {
-	Name                     string                 `json:"name"`
-	Query                    string                 `json:"query"`
-	RestrictSearchableFields []string               `json:"restrict_searchable_fields,omitempty"`
-	RetrivableFields         []string               `json:"retrivable_fields,omitempty"`
-	Filters                  map[string]interface{} `json:"filters,omitempty"`
-	MinWordSizeFor1Typo      *int                   `json:"min_word_size_for_1_typo,omitempty"`
-	MinWordSizeFor2Typos     *int                   `json:"min_word_size_for_2_typos,omitempty"`
+	Name                     string   `json:"name"`
+	Query                    string   `json:"query"`
+	RestrictSearchableFields []string `json:"restrict_searchable_fields,omitempty"`
+	RetrievableFields        []string `json:"retrievable_fields,omitempty"`
+	Filters                  *Filters `json:"filters,omitempty"`
+	MinWordSizeFor1Typo      *int     `json:"min_word_size_for_1_typo,omitempty"`
+	MinWordSizeFor2Typos     *int     `json:"min_word_size_for_2_typos,omitempty"`
 }
 
 // MultiSearchResult represents the response from a multi-search operation
@@ -64,6 +65,21 @@ type MultiSearchResult struct {
 	Results          map[string]SearchResult `json:"results"`
 	TotalQueries     int                     `json:"total_queries"`
 	ProcessingTimeMs float64                 `json:"processing_time_ms"`
+}
+
+// FilterCondition represents a single filter condition
+type FilterCondition struct {
+	Field    string      `json:"field"`
+	Operator string      `json:"operator"`
+	Value    interface{} `json:"value"`
+	Score    float64     `json:"score,omitempty"` // Optional score boost for matching this condition
+}
+
+// Filters represents a complex filter expression with AND/OR logic
+type Filters struct {
+	Operator string            `json:"operator"` // "AND" or "OR"
+	Filters  []FilterCondition `json:"filters"`
+	Groups   []Filters         `json:"groups"` // Nested filter expressions
 }
 
 // Indexer defines operations for adding data to an index

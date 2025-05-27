@@ -19,16 +19,16 @@ ranking, and prefix search capabilities.
 
 **📖 [Complete Documentation](./docs/)** - Comprehensive guides, optimization details, and development resources
 
-| Quick Links                                                     | Description                          |
-| --------------------------------------------------------------- | ------------------------------------ |
-| [🚀 **Getting Started**](#quick-start)                          | Installation and basic usage (below) |
-| [⚙️ **Full Async API**](./FULL_ASYNC_IMPLEMENTATION.md)         | Complete async operations guide      |
-| [⚡ **Performance Guide**](./docs/TYPO_OPTIMIZATION_SUMMARY.md) | 95,000x typo tolerance optimizations |
-| [🎯 **Dashboard Guide**](./docs/DASHBOARD_GUIDE.md)             | Web interface documentation          |
-| [🔧 **Field Naming**](./docs/FIELD_NAMING_GUIDE.md)             | Code conventions and standards       |
-| [📊 **Progress Tracker**](./docs/PROGRESS.md)                   | Development milestones               |
-| [🔧 **API Reference**](./api-spec.yaml)                         | Complete OpenAPI 3.0 specification   |
-| [📖 **Development Guide**](./docs/CLAUDE.md)                    | Coding standards and conventions     |
+| Quick Links                                                     | Description                           |
+| --------------------------------------------------------------- | ------------------------------------- |
+| [🚀 **Getting Started**](#quick-start)                          | Installation and basic usage (below)  |
+| [⚙️ **Full Async API**](./docs/ASYNC_API.md)                    | Complete async operations guide       |
+| [⚡ **Performance Guide**](./docs/TYPO_OPTIMIZATION_SUMMARY.md) | 95,000x typo tolerance optimizations  |
+| [🎯 **Analytics Guide**](./docs/ANALYTICS.md)                   | Analytics and dashboard documentation |
+| [🔧 **Field Naming**](./docs/FIELD_NAMING_GUIDE.md)             | Code conventions and standards        |
+| [🔍 **Search Features**](./docs/SEARCH_FEATURES.md)             | Advanced search capabilities          |
+| [🔧 **API Reference**](./api-spec.yaml)                         | Complete OpenAPI 3.0 specification    |
+| [📖 **Development Guide**](./docs/CLAUDE.md)                    | Coding standards and conventions      |
 
 ## Features
 
@@ -42,7 +42,8 @@ ranking, and prefix search capabilities.
 - **High performance** with optimized inverted index data structures
 - **Persistent storage** with automatic data persistence
 - **Schema-agnostic documents** - accept any JSON structure without field requirements
-- **🚀 Full Async Operations** - All writing operations (create, update, delete) are asynchronous with real-time progress tracking and job management
+- **🚀 Full Async Operations** - All writing operations (create, update, delete) are asynchronous with real-time progress
+  tracking and job management
 
 ## Architecture
 
@@ -326,7 +327,8 @@ curl http://localhost:8080/jobs/job_12345
 4. **Field 2**: Search with typo tolerance (if enabled for this field)
 5. Continue for all remaining fields...
 
-This ensures higher-priority fields (like `"title"`) are fully exhausted before moving to lower-priority fields (like `"description"`).
+This ensures higher-priority fields (like `"title"`) are fully exhausted before moving to lower-priority fields (like
+`"description"`).
 
 **Example**:
 
@@ -370,7 +372,8 @@ With this configuration:
 - **Cast matches are third priority** (exact + typo tolerance)
 - **Genre matches are lowest priority** (exact only, no typos, no prefix search)
 
-This ensures a search for "action" will prioritize movies with "Action" in the title over movies with "Action" in the cast or genres.
+This ensures a search for "action" will prioritize movies with "Action" in the title over movies with "Action" in the
+cast or genres.
 
 #### ⚙️ **Field Configuration Options**
 
@@ -380,7 +383,8 @@ This ensures a search for "action" will prioritize movies with "Action" in the t
 
 ## Document Deduplication
 
-The search engine supports automatic deduplication of search results based on a specified field. This is useful when you have duplicate documents with the same content but different UUIDs.
+The search engine supports automatic deduplication of search results based on a specified field. This is useful when you
+have duplicate documents with the same content but different UUIDs.
 
 ### Configuring Deduplication
 
@@ -493,7 +497,7 @@ The project follows Go best practices:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ## Roadmap
 
