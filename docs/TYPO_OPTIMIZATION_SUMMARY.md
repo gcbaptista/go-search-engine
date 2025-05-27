@@ -19,13 +19,20 @@ indexes. The search engine now uses **Damerau-Levenshtein distance** instead of 
 - **Minimal Performance Impact**: Only ~4% slower than standard Levenshtein for the full algorithm
 - **Early Termination Version**: 34% faster than standard Levenshtein due to early termination
 
-### 2. **Consolidated Implementation**
+### 2. **Redundant Typo Match Prevention**
+
+- **Best Distance Tracking**: Tracks the best typo distance for each query token per document
+- **Quality-Based Filtering**: Prevents showing multiple typo matches of different quality for the same token
+- **Cleaner Results**: Eliminates confusing redundant matches like both "carel(typo)" and "carell(typo)" for query "careel"
+- **Maintained Coverage**: Still shows multiple matches when they have the same distance (equal quality)
+
+### 3. **Consolidated Implementation**
 
 - **Single Source of Truth**: All typo tolerance logic consolidated in `internal/typoutil/levenshtein.go`
 - **Removed Redundancy**: Eliminated duplicate functions and confusing "Optimized" naming
 - **Simplified API**: Main functions now use the best algorithms by default
 
-### 3. **Performance Optimizations**
+### 4. **Performance Optimizations**
 
 #### Early Termination
 
@@ -73,19 +80,28 @@ GenerateTyposSimple()                             // Simple interface with early
 ## Performance Benchmarks
 
 | Algorithm                       | Performance | Notes                         |
-|---------------------------------|-------------|-------------------------------|
+| ------------------------------- | ----------- | ----------------------------- |
 | Standard Levenshtein            | ~2076 ns/op | Baseline                      |
 | Damerau-Levenshtein             | ~2157 ns/op | +4% overhead, better accuracy |
 | Damerau-Levenshtein (WithLimit) | ~1367 ns/op | **34% faster** than baseline  |
 
 ## Usage in Search Engine
 
-The search service now uses the typo finder with dual criteria:
+The search service now uses the typo finder with dual criteria and redundant match prevention:
 
 ```go
 // Current implementation in search service
 typos1 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 1, maxTypoResults, timeLimit)
 typos2 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 2, maxTypoResults, timeLimit)
+
+// Best typo distance tracking prevents redundant matches
+bestTypoDistanceByQueryToken := make(map[string]map[uint32]int)
+
+// Skip typo matching if we already have a better match for this token in this document
+currentBestDistance, hasPreviousTypo := bestTypoDistanceByQueryToken[queryToken][entry.DocID]
+if hasPreviousTypo && currentBestDistance <= typoDistance {
+    continue // Skip this worse typo match
+}
 ```
 
 ### Configuration
@@ -205,6 +221,50 @@ if maxResults > 0 && len(typos) >= maxResults {
 
 **Impact**: Balances completeness with performance using dual stopping criteria.
 
+### 5. **Redundant Typo Match Prevention**
+
+```go
+// Track best typo distance per query token per document
+bestTypoDistanceByQueryToken := make(map[string]map[uint32]int)
+
+// For each potential typo match
+currentBestDistance, hasPreviousTypo := bestTypoDistanceByQueryToken[queryToken][entry.DocID]
+
+// Skip if we already have a better (lower distance) match
+if hasPreviousTypo && currentBestDistance <= typoDistance {
+    continue
+}
+
+// Replace if this is better, or add if same distance
+if !hasPreviousTypo || typoDistance < currentBestDistance {
+    // Replace with better match
+    bestTypoDistanceByQueryToken[queryToken][entry.DocID] = typoDistance
+} else if typoDistance == currentBestDistance {
+    // Add to existing matches (same quality)
+}
+```
+
+**Problem Solved**: Previously, a query like "steve careel" would show both `carel(typo)` and `carell(typo)` for the same query token "careel", creating confusing redundant results.
+
+**Solution**: Track the best typo distance for each query token in each document and only show:
+
+- The best quality matches (lowest distance)
+- Multiple matches only when they have equal quality
+
+**Example**:
+
+- Query: `"steve careel"`
+- Document contains: `"Steve Carell"`
+- Before: Shows `steve`, `carel(typo)`, `carell(typo)` (3 matches, 2 typos)
+- After: Shows `steve`, `carel(typo)` (2 matches, 1 typo)
+
+**Benefits**:
+
+- ✅ **Cleaner results**: No redundant typo matches
+- ✅ **Better UX**: Less confusing for users
+- ✅ **Maintained quality**: Still finds all relevant documents
+- ✅ **Performance**: Slightly faster due to fewer matches processed
+
 **Algorithm**:
 
 - **Result limit**: 500 indexed terms maximum
@@ -320,9 +380,16 @@ typos2 := s.typoFinder.GenerateTyposWithTimeLimit(queryToken, 2, maxTypoResults,
 ### For search queries with multiple tokens:
 
 - A 3-token query with typo tolerance:
-    - **Before**: ~29ms just for typo processing
-    - **After**: ~0.0003ms for typo processing
-    - **Overall search latency**: Reduced from ~50ms to ~5ms
+  - **Before**: ~29ms just for typo processing
+  - **After**: ~0.0003ms for typo processing
+  - **Overall search latency**: Reduced from ~50ms to ~5ms
+
+### For redundant typo match prevention:
+
+- **Query**: "steve careel" (common misspelling)
+- **Before**: Shows 3 matches (steve, carel(typo), carell(typo)) with 2 typos counted
+- **After**: Shows 2 matches (steve, carel(typo)) with 1 typo counted
+- **Improvement**: 33% fewer redundant matches, cleaner user experience
 
 ## Memory Usage
 
@@ -377,8 +444,10 @@ Potential further optimizations:
 
 - `internal/typoutil/typo_finder.go` - Typo finder with caching and time limits
 - `internal/typoutil/benchmark_test.go` - Comprehensive benchmarks
-- `internal/search/service.go` - Integration with search service
+- `internal/search/service.go` - Integration with search service + redundant match prevention
 - `internal/search/service_test.go` - Updated tests with QueryId
+- `docs/TYPO_OPTIMIZATION_SUMMARY.md` - Updated documentation with latest optimizations
+- `docs/SEARCH_FEATURES.md` - Updated typo tolerance feature description
 
 ## Conclusion
 

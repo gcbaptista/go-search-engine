@@ -96,6 +96,8 @@ Advanced typo tolerance using Damerau-Levenshtein distance algorithm that handle
 - Character deletions (e.g., "cart" → "cat")
 - Character transpositions (e.g., "form" → "from")
 
+**Smart Match Prevention**: Automatically prevents redundant typo matches by showing only the best quality typo match per query token per document, eliminating confusing duplicate results.
+
 ### Configuration
 
 ```json
@@ -154,7 +156,7 @@ curl -X POST http://localhost:8080/indexes/products/search \
 ### Supported Filter Operators
 
 | Operator          | Description            | Example                                   |
-|-------------------|------------------------|-------------------------------------------|
+| ----------------- | ---------------------- | ----------------------------------------- |
 | `exact`           | Exact match            | `"category_exact": "electronics"`         |
 | `ne`              | Not equal              | `"status_ne": "inactive"`                 |
 | `gt`              | Greater than           | `"price_gt": 100`                         |
