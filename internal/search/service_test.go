@@ -2208,9 +2208,10 @@ func TestFilters(t *testing.T) {
 		// Check filter scores
 		for _, hit := range result.Hits {
 			genre := hit.Document["genre"].(string)
-			if genre == "Action" {
+			switch genre {
+			case "Action":
 				assert.Equal(t, 2.0, hit.Info.FilterScore, "Action movie should have filter score 2.0")
-			} else if genre == "Comedy" {
+			case "Comedy":
 				assert.Equal(t, 1.5, hit.Info.FilterScore, "Comedy movie should have filter score 1.5")
 			}
 		}

@@ -158,7 +158,7 @@ func (s *Service) addSingleDocumentUnsafe(doc model.Document) error {
 					if postingList, ok := s.invertedIndex.Index[oldToken]; ok {
 						newList := make(index.PostingList, 0, len(postingList))
 						for _, entry := range postingList {
-							if !(entry.DocID == internalID && entry.FieldName == fieldName) {
+							if entry.DocID != internalID || entry.FieldName != fieldName {
 								newList = append(newList, entry)
 							}
 						}
@@ -363,7 +363,7 @@ func (s *Service) DeleteDocument(docID string) error {
 					newList := make(index.PostingList, 0, len(postingList))
 					for _, entry := range postingList {
 						// Keep entries that don't match this document and field
-						if !(entry.DocID == internalID && entry.FieldName == fieldName) {
+						if entry.DocID != internalID || entry.FieldName != fieldName {
 							newList = append(newList, entry)
 						}
 					}
