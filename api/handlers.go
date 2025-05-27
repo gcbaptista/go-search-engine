@@ -25,7 +25,7 @@ func NewAPI(engine services.IndexManager) *API {
 func SetupRoutes(router *gin.Engine, engine services.IndexManager) {
 	// Add middleware
 	router.Use(CORSMiddleware())
-	router.Use(RequestSizeLimitMiddleware(10 << 20)) // 10 MB limit
+	router.Use(RequestSizeLimitMiddleware(500 << 20)) // 500 MB limit
 
 	apiHandler := NewAPI(engine)
 
