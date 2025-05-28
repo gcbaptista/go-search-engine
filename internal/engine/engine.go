@@ -1,11 +1,11 @@
 package engine
 
 import (
-	"fmt"
 	"runtime"
 	"sync"
 
 	"github.com/gcbaptista/go-search-engine/config"
+	"github.com/gcbaptista/go-search-engine/internal/errors"
 	"github.com/gcbaptista/go-search-engine/internal/jobs"
 	"github.com/gcbaptista/go-search-engine/model"
 	"github.com/gcbaptista/go-search-engine/services"
@@ -49,7 +49,7 @@ func (e *Engine) GetIndex(name string) (services.IndexAccessor, error) {
 
 	instance, exists := e.indexes[name]
 	if !exists {
-		return nil, fmt.Errorf("index named '%s' not found", name)
+		return nil, errors.NewIndexNotFoundError(name)
 	}
 	return instance, nil
 }
@@ -61,7 +61,7 @@ func (e *Engine) GetIndexSettings(name string) (config.IndexSettings, error) {
 
 	instance, exists := e.indexes[name]
 	if !exists {
-		return config.IndexSettings{}, fmt.Errorf("index named '%s' not found", name)
+		return config.IndexSettings{}, errors.NewIndexNotFoundError(name)
 	}
 	return *instance.settings, nil // Return a copy
 }

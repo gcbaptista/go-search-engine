@@ -6,6 +6,7 @@ ranking, and prefix search capabilities.
 ## 🚀 Key Features
 
 - **Full-text search** with typo tolerance (Damerau-Levenshtein distance)
+- **BM25 relevance scoring** for industry-standard search quality
 - **Query-time typo tolerance override** (customize minWordSizes per search request)
 - **Prefix search** and autocomplete capabilities
 - **Advanced filtering** with multiple operators (exact, range, contains, etc.)

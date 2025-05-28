@@ -108,8 +108,8 @@ func (tf *TypoFinder) findTyposWithDualCriteria(term string, maxDistance int, ma
 			continue
 		}
 
-		// Calculate actual Levenshtein distance
-		dist := CalculateDamerauLevenshteinDistanceWithLimit(term, indexedTerm, maxDistance)
+		// Calculate actual edit distance
+		dist := CalculateEditDistance(term, indexedTerm, maxDistance)
 		if dist > 0 && dist <= maxDistance {
 			typos = append(typos, indexedTerm)
 
@@ -148,7 +148,7 @@ func GenerateTyposSimple(term string, allIndexedTerms []string, maxDistance int)
 			continue
 		}
 
-		dist := CalculateDamerauLevenshteinDistanceWithLimit(term, indexedTerm, maxDistance)
+		dist := CalculateEditDistance(term, indexedTerm, maxDistance)
 		if dist > 0 && dist <= maxDistance {
 			typos = append(typos, indexedTerm)
 		}

@@ -57,7 +57,7 @@ func TestCreateIndexHandler(t *testing.T) {
 			requestBody: config.IndexSettings{
 				Name:             "test_index_create",
 				SearchableFields: []string{"Title", "content"}, // Use "Title" to match document field
-				FilterableFields: []string{"category"},
+				FilterableFields: []string{"category", "popularity"},
 				RankingCriteria: []config.RankingCriterion{
 					{Field: "popularity", Order: "desc"},
 				},
@@ -375,7 +375,7 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 	indexSettings := config.IndexSettings{
 		Name:                      "test_update_settings",
 		SearchableFields:          []string{"title", "content"},
-		FilterableFields:          []string{"category", "year"},
+		FilterableFields:          []string{"category", "year", "popularity"},
 		RankingCriteria:           []config.RankingCriterion{{Field: "popularity", Order: "desc"}},
 		MinWordSizeFor1Typo:       4,
 		MinWordSizeFor2Typos:      7,
@@ -423,8 +423,8 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 			name: "update field-level settings only (no reindexing)",
 			requestBody: map[string]interface{}{
 				"fields_without_prefix_search": []string{"content"},
-				"no_typo_tolerance_fields":     []string{"category"},
-				"distinct_field":               "title",
+				"no_typo_tolerance_fields":     []string{"title"},
+				"distinct_field":               "category",
 			},
 			expectedStatus:    http.StatusAccepted,
 			expectedReindexed: &[]bool{false}[0],
@@ -440,7 +440,8 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 		{
 			name: "update filterable fields (triggers reindexing)",
 			requestBody: map[string]interface{}{
-				"filterable_fields": []string{"category", "year", "popularity"},
+				"filterable_fields": []string{"category", "year", "rating"},                       // Changed from popularity to rating
+				"ranking_criteria":  []map[string]interface{}{{"field": "year", "order": "desc"}}, // Update ranking to use year instead of popularity
 			},
 			expectedStatus:    http.StatusAccepted,
 			expectedReindexed: &[]bool{true}[0],
@@ -450,7 +451,7 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 			requestBody: map[string]interface{}{
 				"ranking_criteria": []map[string]interface{}{
 					{"field": "year", "order": "desc"},
-					{"field": "popularity", "order": "desc"},
+					{"field": "category", "order": "desc"},
 				},
 			},
 			expectedStatus:    http.StatusAccepted,
@@ -469,7 +470,7 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 			name: "comprehensive update (mix of settings)",
 			requestBody: map[string]interface{}{
 				"searchable_fields":            []string{"title", "content"},
-				"filterable_fields":            []string{"category", "year"},
+				"filterable_fields":            []string{"category", "year", "popularity"},
 				"ranking_criteria":             []map[string]interface{}{{"field": "popularity", "order": "desc"}},
 				"fields_without_prefix_search": []string{},
 				"no_typo_tolerance_fields":     []string{},
@@ -525,9 +526,12 @@ func TestUpdateIndexSettingsHandler(t *testing.T) {
 					t.Errorf("Expected error in response, but got none")
 				}
 				if tt.errorContains != "" {
+					// Check both the error field and message field for the expected content
 					errorStr := fmt.Sprintf("%v", errorResp["error"])
-					if !bytes.Contains([]byte(errorStr), []byte(tt.errorContains)) {
-						t.Errorf("Expected error to contain '%s', but got: %s", tt.errorContains, errorStr)
+					messageStr := fmt.Sprintf("%v", errorResp["message"])
+					fullErrorStr := errorStr + " " + messageStr
+					if !bytes.Contains([]byte(fullErrorStr), []byte(tt.errorContains)) {
+						t.Errorf("Expected error to contain '%s', but got: %s", tt.errorContains, fullErrorStr)
 					}
 				}
 			} else {
@@ -563,7 +567,7 @@ func TestRenameIndexHandler(t *testing.T) {
 	indexSettings1 := config.IndexSettings{
 		Name:             "test_rename_source",
 		SearchableFields: []string{"title", "content"},
-		FilterableFields: []string{"category"},
+		FilterableFields: []string{"category", "popularity"},
 		RankingCriteria: []config.RankingCriterion{
 			{Field: "popularity", Order: "desc"},
 		},
@@ -909,8 +913,13 @@ func TestMultiSearchHandler(t *testing.T) {
 			validateFunc: func(t *testing.T, response map[string]interface{}) {
 				if errorMsg, exists := response["error"]; !exists {
 					t.Error("Expected error message for empty queries")
-				} else if !bytes.Contains([]byte(fmt.Sprintf("%v", errorMsg)), []byte("At least one query is required")) {
-					t.Errorf("Expected error about empty queries, got: %v", errorMsg)
+				} else {
+					// Check both error and message fields for the expected content
+					messageStr := fmt.Sprintf("%v", response["message"])
+					fullErrorStr := fmt.Sprintf("%v", errorMsg) + " " + messageStr
+					if !bytes.Contains([]byte(fullErrorStr), []byte("At least one query is required")) {
+						t.Errorf("Expected error about empty queries, got: %v", fullErrorStr)
+					}
 				}
 			},
 		},
@@ -932,8 +941,13 @@ func TestMultiSearchHandler(t *testing.T) {
 			validateFunc: func(t *testing.T, response map[string]interface{}) {
 				if errorMsg, exists := response["error"]; !exists {
 					t.Error("Expected error message for duplicate query names")
-				} else if !bytes.Contains([]byte(fmt.Sprintf("%v", errorMsg)), []byte("Query names must be unique")) {
-					t.Errorf("Expected error about duplicate names, got: %v", errorMsg)
+				} else {
+					// Check both error and message fields for the expected content
+					messageStr := fmt.Sprintf("%v", response["message"])
+					fullErrorStr := fmt.Sprintf("%v", errorMsg) + " " + messageStr
+					if !bytes.Contains([]byte(fullErrorStr), []byte("Query names must be unique")) {
+						t.Errorf("Expected error about duplicate names, got: %v", fullErrorStr)
+					}
 				}
 			},
 		},
@@ -951,8 +965,13 @@ func TestMultiSearchHandler(t *testing.T) {
 			validateFunc: func(t *testing.T, response map[string]interface{}) {
 				if errorMsg, exists := response["error"]; !exists {
 					t.Error("Expected error message for empty query name")
-				} else if !bytes.Contains([]byte(fmt.Sprintf("%v", errorMsg)), []byte("non-empty name")) {
-					t.Errorf("Expected error about empty query name, got: %v", errorMsg)
+				} else {
+					// Check both error and message fields for the expected content
+					messageStr := fmt.Sprintf("%v", response["message"])
+					fullErrorStr := fmt.Sprintf("%v", errorMsg) + " " + messageStr
+					if !bytes.Contains([]byte(fullErrorStr), []byte("non-empty name")) {
+						t.Errorf("Expected error about empty query name, got: %v", fullErrorStr)
+					}
 				}
 			},
 		},
@@ -971,8 +990,13 @@ func TestMultiSearchHandler(t *testing.T) {
 			validateFunc: func(t *testing.T, response map[string]interface{}) {
 				if errorMsg, exists := response["error"]; !exists {
 					t.Error("Expected error message for invalid searchable field")
-				} else if !bytes.Contains([]byte(fmt.Sprintf("%v", errorMsg)), []byte("not configured as a searchable field")) {
-					t.Errorf("Expected error about invalid searchable field, got: %v", errorMsg)
+				} else {
+					// Check both error and message fields for the expected content
+					messageStr := fmt.Sprintf("%v", response["message"])
+					fullErrorStr := fmt.Sprintf("%v", errorMsg) + " " + messageStr
+					if !bytes.Contains([]byte(fullErrorStr), []byte("not configured as a searchable field")) {
+						t.Errorf("Expected error about invalid searchable field, got: %v", fullErrorStr)
+					}
 				}
 			},
 		},
@@ -1036,8 +1060,13 @@ func TestMultiSearchHandler_IndexNotFound(t *testing.T) {
 
 	if errorMsg, exists := response["error"]; !exists {
 		t.Error("Expected error message for nonexistent index")
-	} else if !bytes.Contains([]byte(fmt.Sprintf("%v", errorMsg)), []byte("not found")) {
-		t.Errorf("Expected error about index not found, got: %v", errorMsg)
+	} else {
+		// Check both error and message fields for the expected content
+		messageStr := fmt.Sprintf("%v", response["message"])
+		fullErrorStr := fmt.Sprintf("%v", errorMsg) + " " + messageStr
+		if !bytes.Contains([]byte(fullErrorStr), []byte("not found")) {
+			t.Errorf("Expected error about index not found, got: %v", fullErrorStr)
+		}
 	}
 }
 

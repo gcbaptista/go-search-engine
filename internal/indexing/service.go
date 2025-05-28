@@ -10,6 +10,7 @@ import (
 
 	"github.com/gcbaptista/go-search-engine/config"
 	"github.com/gcbaptista/go-search-engine/index"
+	"github.com/gcbaptista/go-search-engine/internal/errors"
 	"github.com/gcbaptista/go-search-engine/internal/tokenizer"
 	"github.com/gcbaptista/go-search-engine/model"
 	"github.com/gcbaptista/go-search-engine/store"
@@ -350,7 +351,7 @@ func (s *Service) DeleteDocument(docID string) error {
 	// Check if the document exists
 	internalID, exists := s.documentStore.ExternalIDtoInternalID[docID]
 	if !exists {
-		return fmt.Errorf("document with ID '%s' not found", docID)
+		return errors.NewDocumentNotFoundError(docID)
 	}
 
 	// Get the document to clean up its tokens

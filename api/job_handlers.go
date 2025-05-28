@@ -1,11 +1,13 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/gcbaptista/go-search-engine/internal/engine"
+	internalErrors "github.com/gcbaptista/go-search-engine/internal/errors"
 	"github.com/gcbaptista/go-search-engine/model"
 	"github.com/gcbaptista/go-search-engine/services"
 )
@@ -17,13 +19,17 @@ func (api *API) GetJobHandler(c *gin.Context) {
 	if jobManager, ok := api.engine.(services.JobManager); ok {
 		job, err := jobManager.GetJob(jobID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found: " + err.Error()})
+			if errors.Is(err, internalErrors.ErrJobNotFound) {
+				SendJobNotFoundError(c, jobID)
+				return
+			}
+			SendInternalError(c, "get job", err)
 			return
 		}
 
 		c.JSON(http.StatusOK, job)
 	} else {
-		c.JSON(http.StatusNotImplemented, gin.H{"error": "Job management not supported by this engine"})
+		SendError(c, http.StatusNotImplemented, ErrorCodeInternalError, "Job management not supported by this engine")
 	}
 }
 
@@ -46,7 +52,7 @@ func (api *API) ListJobsHandler(c *gin.Context) {
 			"total":      len(jobs),
 		})
 	} else {
-		c.JSON(http.StatusNotImplemented, gin.H{"error": "Job management not supported by this engine"})
+		SendError(c, http.StatusNotImplemented, ErrorCodeInternalError, "Job management not supported by this engine")
 	}
 }
 
@@ -65,6 +71,6 @@ func (api *API) GetJobMetricsHandler(c *gin.Context) {
 
 		c.JSON(http.StatusOK, response)
 	} else {
-		c.JSON(http.StatusNotImplemented, gin.H{"error": "Job metrics not supported by this engine"})
+		SendError(c, http.StatusNotImplemented, ErrorCodeInternalError, "Job metrics not supported by this engine")
 	}
 }

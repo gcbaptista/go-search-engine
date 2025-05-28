@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/gcbaptista/go-search-engine/internal/errors"
 	"github.com/gcbaptista/go-search-engine/model"
 )
 
@@ -74,7 +75,7 @@ func (m *Manager) GetJob(jobID string) (*model.Job, error) {
 
 	job, exists := m.jobs[jobID]
 	if !exists {
-		return nil, fmt.Errorf("job with ID '%s' not found", jobID)
+		return nil, errors.NewJobNotFoundError(jobID)
 	}
 
 	// Return a copy to avoid race conditions
@@ -114,7 +115,7 @@ func (m *Manager) ExecuteJob(jobID string, jobFunc func(ctx context.Context, job
 	job, exists := m.jobs[jobID]
 	if !exists {
 		m.mu.Unlock()
-		return fmt.Errorf("job with ID '%s' not found", jobID)
+		return errors.NewJobNotFoundError(jobID)
 	}
 
 	if job.Status != model.JobStatusPending {

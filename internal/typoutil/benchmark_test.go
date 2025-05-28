@@ -126,8 +126,8 @@ func BenchmarkScaling(b *testing.B) {
 	}
 }
 
-// Benchmark Levenshtein distance calculation
-func BenchmarkLevenshteinDistance(b *testing.B) {
+// Benchmark edit distance calculation
+func BenchmarkEditDistance(b *testing.B) {
 	testPairs := [][]string{
 		{"kitten", "sitting"},
 		{"action", "aktion"},
@@ -136,18 +136,10 @@ func BenchmarkLevenshteinDistance(b *testing.B) {
 		{"thriller", "thrlr"},
 	}
 
-	b.Run("Original", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			for _, pair := range testPairs {
-				_ = CalculateLevenshteinDistance(pair[0], pair[1])
-			}
-		}
-	})
-
 	b.Run("WithLimit", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for _, pair := range testPairs {
-				_ = CalculateDamerauLevenshteinDistanceWithLimit(pair[0], pair[1], 2)
+				_ = CalculateEditDistance(pair[0], pair[1], 2)
 			}
 		}
 	})

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	internalErrors "github.com/gcbaptista/go-search-engine/internal/errors"
 	"github.com/gcbaptista/go-search-engine/model"
 	"github.com/gcbaptista/go-search-engine/services"
 )
@@ -48,15 +50,27 @@ func (api *API) SearchHandler(c *gin.Context) {
 	startTime := time.Now()
 	indexName := c.Param("indexName")
 
+	// Validate index name
+	if result := ValidateIndexName(indexName); result.HasErrors() {
+		SendValidationError(c, result)
+		return
+	}
+
 	indexAccessor, err := api.engine.GetIndex(indexName)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
+		if errors.Is(err, internalErrors.ErrIndexNotFound) {
+			SendIndexNotFoundError(c, indexName)
+			return
+		}
+		SendInternalError(c, "get index", err)
 		return
 	}
 
 	var req SearchRequest
+
+	// Bind JSON directly with error handling
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid search request body: " + err.Error()})
+		SendError(c, http.StatusBadRequest, ErrorCodeInvalidQuery, "Invalid request body: "+err.Error())
 		return
 	}
 
@@ -73,7 +87,7 @@ func (api *API) SearchHandler(c *gin.Context) {
 
 	results, err := indexAccessor.Search(searchQuery)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error performing search on index '" + indexName + "': " + err.Error()})
+		SendSearchError(c, indexName, err)
 		return
 	}
 
@@ -105,21 +119,33 @@ func (api *API) MultiSearchHandler(c *gin.Context) {
 	startTime := time.Now()
 	indexName := c.Param("indexName")
 
+	// Validate index name
+	if result := ValidateIndexName(indexName); result.HasErrors() {
+		SendValidationError(c, result)
+		return
+	}
+
 	indexAccessor, err := api.engine.GetIndex(indexName)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
+		if errors.Is(err, internalErrors.ErrIndexNotFound) {
+			SendIndexNotFoundError(c, indexName)
+			return
+		}
+		SendInternalError(c, "get index", err)
 		return
 	}
 
 	var req MultiSearchRequest
+
+	// Bind JSON directly with error handling
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid multi-search request body: " + err.Error()})
+		SendError(c, http.StatusBadRequest, ErrorCodeInvalidQuery, "Invalid request body: "+err.Error())
 		return
 	}
 
 	// Validate that we have at least one query
 	if len(req.Queries) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one query is required"})
+		SendError(c, http.StatusBadRequest, ErrorCodeInvalidQuery, "At least one query is required")
 		return
 	}
 
@@ -127,11 +153,11 @@ func (api *API) MultiSearchHandler(c *gin.Context) {
 	queryNames := make(map[string]bool)
 	for _, namedQuery := range req.Queries {
 		if namedQuery.Name == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "All queries must have a non-empty name"})
+			SendError(c, http.StatusBadRequest, ErrorCodeInvalidQuery, "All queries must have a non-empty name")
 			return
 		}
 		if queryNames[namedQuery.Name] {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Query names must be unique: '" + namedQuery.Name + "' appears multiple times"})
+			SendError(c, http.StatusBadRequest, ErrorCodeInvalidQuery, "Query names must be unique: '"+namedQuery.Name+"' appears multiple times")
 			return
 		}
 		queryNames[namedQuery.Name] = true
@@ -159,7 +185,7 @@ func (api *API) MultiSearchHandler(c *gin.Context) {
 
 	results, err := indexAccessor.MultiSearch(multiSearchQuery)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error performing multi-search on index '" + indexName + "': " + err.Error()})
+		SendSearchError(c, indexName, err)
 		return
 	}
 
