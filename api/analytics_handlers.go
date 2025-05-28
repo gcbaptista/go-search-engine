@@ -12,7 +12,7 @@ import (
 func (api *API) GetAnalyticsHandler(c *gin.Context) {
 	dashboard, err := api.analytics.GetDashboardData()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve analytics data: " + err.Error()})
+		SendInternalError(c, "retrieve analytics data", err)
 		return
 	}
 

@@ -1,14 +1,15 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/gcbaptista/go-search-engine/config"
 	"github.com/gcbaptista/go-search-engine/internal/engine"
+	internalErrors "github.com/gcbaptista/go-search-engine/internal/errors"
 	"github.com/gcbaptista/go-search-engine/services"
 )
 
@@ -16,13 +17,16 @@ import (
 // Request Body: config.IndexSettings
 func (api *API) CreateIndexHandler(c *gin.Context) {
 	var settings config.IndexSettings
-	if err := c.ShouldBindJSON(&settings); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
+
+	// Validate JSON binding
+	if result := ValidateJSONBinding(c, &settings); result.HasErrors() {
+		SendValidationError(c, result)
 		return
 	}
 
-	if settings.Name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Index name is required"})
+	// Validate index settings
+	if result := ValidateIndexSettings(&settings); result.HasErrors() {
+		SendValidationError(c, result)
 		return
 	}
 
@@ -38,7 +42,11 @@ func (api *API) CreateIndexHandler(c *gin.Context) {
 	}
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create index: " + err.Error()})
+		if errors.Is(err, internalErrors.ErrIndexAlreadyExists) {
+			SendIndexExistsError(c, settings.Name)
+			return
+		}
+		SendIndexingError(c, "create index", err)
 		return
 	}
 
@@ -65,7 +73,11 @@ func (api *API) GetIndexHandler(c *gin.Context) {
 	indexName := c.Param("indexName")
 	indexAccessor, err := api.engine.GetIndex(indexName)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
+		if errors.Is(err, internalErrors.ErrIndexNotFound) {
+			SendIndexNotFoundError(c, indexName)
+			return
+		}
+		SendInternalError(c, "get index", err)
 		return
 	}
 	c.JSON(http.StatusOK, indexAccessor.Settings())
@@ -86,12 +98,12 @@ func (api *API) DeleteIndexHandler(c *gin.Context) {
 
 	if err != nil {
 		// Check if the error indicates the index was not found
-		if strings.Contains(err.Error(), "not found") {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
+		if errors.Is(err, internalErrors.ErrIndexNotFound) {
+			SendIndexNotFoundError(c, indexName)
 			return
 		}
 		// For other errors (file system errors, etc.), return internal server error
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete index '" + indexName + "': " + err.Error()})
+		SendIndexingError(c, "delete index", err)
 		return
 	}
 
@@ -117,19 +129,16 @@ func (api *API) RenameIndexHandler(c *gin.Context) {
 	oldName := c.Param("indexName")
 
 	var req RenameIndexRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
+
+	// Validate JSON binding
+	if result := ValidateJSONBinding(c, &req); result.HasErrors() {
+		SendValidationError(c, result)
 		return
 	}
 
-	if req.NewName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "new_name is required and cannot be empty"})
-		return
-	}
-
-	// Validate new name
-	if strings.TrimSpace(req.NewName) != req.NewName {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "new_name cannot have leading or trailing whitespace"})
+	// Validate rename request
+	if result := ValidateRenameRequest(oldName, req.NewName); result.HasErrors() {
+		SendValidationError(c, result)
 		return
 	}
 
@@ -144,20 +153,20 @@ func (api *API) RenameIndexHandler(c *gin.Context) {
 
 	if err != nil {
 		// Determine the appropriate HTTP status based on the error
-		if strings.Contains(err.Error(), "not found") {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + oldName + "' not found"})
+		if errors.Is(err, internalErrors.ErrIndexNotFound) {
+			SendIndexNotFoundError(c, oldName)
 			return
 		}
-		if strings.Contains(err.Error(), "already exists") {
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		if errors.Is(err, internalErrors.ErrIndexAlreadyExists) {
+			SendIndexExistsError(c, req.NewName)
 			return
 		}
-		if strings.Contains(err.Error(), "same") {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if errors.Is(err, internalErrors.ErrSameName) {
+			SendSameNameError(c, req.NewName)
 			return
 		}
 		// For other errors (file system errors, etc.), return internal server error
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to rename index: " + err.Error()})
+		SendIndexingError(c, "rename index", err)
 		return
 	}
 
@@ -198,14 +207,18 @@ func (api *API) UpdateIndexSettingsHandler(c *gin.Context) {
 
 	settings, err := api.engine.GetIndexSettings(indexName)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found or error getting settings: " + err.Error()})
+		if errors.Is(err, internalErrors.ErrIndexNotFound) {
+			SendIndexNotFoundError(c, indexName)
+			return
+		}
+		SendInternalError(c, "get index settings", err)
 		return
 	}
 
 	// Read raw request first to check for key presence
 	rawRequest := make(map[string]interface{})
 	if err := c.ShouldBindJSON(&rawRequest); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
+		SendInvalidJSONError(c, err)
 		return
 	}
 
@@ -360,16 +373,20 @@ func (api *API) UpdateIndexSettingsHandler(c *gin.Context) {
 	}
 
 	if !updated {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No valid updatable fields provided or no changes detected"})
+		SendError(c, http.StatusBadRequest, ErrorCodeInvalidRequest, "No valid updatable fields provided or no changes detected")
 		return
 	}
 
 	// Validate field names to prevent conflicts with filter operators
 	if conflicts := settings.ValidateFieldNames(); len(conflicts) > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":     "Field name validation failed",
-			"conflicts": conflicts,
-		})
+		details := make([]ErrorDetail, len(conflicts))
+		for i, conflict := range conflicts {
+			details[i] = ErrorDetail{
+				Message: conflict,
+				Code:    "FIELD_VALIDATION_ERROR",
+			}
+		}
+		SendError(c, http.StatusBadRequest, ErrorCodeValidationFailed, "Field name validation failed", details...)
 		return
 	}
 
@@ -378,13 +395,13 @@ func (api *API) UpdateIndexSettingsHandler(c *gin.Context) {
 	if engineWithAsyncReindex, ok := api.engine.(services.IndexManagerWithAsyncReindex); ok {
 		jobID, err = engineWithAsyncReindex.UpdateIndexSettingsWithAsyncReindex(indexName, settings)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start async settings update: " + err.Error()})
+			SendJobExecutionError(c, "settings update", err)
 			return
 		}
 	} else {
 		err = api.engine.UpdateIndexSettings(indexName, settings)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update index settings: " + err.Error()})
+			SendInternalError(c, "update index settings", err)
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
@@ -408,7 +425,11 @@ func (api *API) GetIndexStatsHandler(c *gin.Context) {
 	indexName := c.Param("indexName")
 	indexAccessor, err := api.engine.GetIndex(indexName)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
+		if errors.Is(err, internalErrors.ErrIndexNotFound) {
+			SendIndexNotFoundError(c, indexName)
+			return
+		}
+		SendInternalError(c, "get index", err)
 		return
 	}
 

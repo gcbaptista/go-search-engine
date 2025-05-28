@@ -562,8 +562,8 @@ func TestFieldNameValidation(t *testing.T) {
 		settings := &config.IndexSettings{
 			Name:             "test_index",
 			SearchableFields: []string{"title", "description", "content", "field_exact", "rating_gte"}, // Field names ending with operators are now allowed
-			FilterableFields: []string{"year", "rating", "popularity", "release_date"},
-			DistinctField:    "uuid",
+			FilterableFields: []string{"year", "rating", "popularity", "release_date", "uuid"},
+			DistinctField:    "uuid", // uuid is now in filterable fields
 		}
 
 		conflicts := settings.ValidateFieldNames()

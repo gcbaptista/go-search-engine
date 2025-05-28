@@ -172,7 +172,6 @@ func (s *Service) Search(query services.SearchQuery) (services.SearchResult, err
 
 	// Second pass: apply typo tolerance (skip if document already has exact match for the specific token)
 	for _, queryToken := range originalQueryTokens {
-
 		// 2. Typo matches for the queryToken
 		// Check if this query token is in the non-typo tolerant words list
 		isNonTypoTolerant := false

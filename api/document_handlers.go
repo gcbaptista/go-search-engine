@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -8,22 +9,34 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/gcbaptista/go-search-engine/internal/engine"
+	internalErrors "github.com/gcbaptista/go-search-engine/internal/errors"
 	"github.com/gcbaptista/go-search-engine/model"
 )
 
 // AddDocumentsHandler handles adding/updating documents in an index.
 func (api *API) AddDocumentsHandler(c *gin.Context) {
 	indexName := c.Param("indexName")
+
+	// Validate index name
+	if result := ValidateIndexName(indexName); result.HasErrors() {
+		SendValidationError(c, result)
+		return
+	}
+
 	_, err := api.engine.GetIndex(indexName)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
+		if errors.Is(err, internalErrors.ErrIndexNotFound) {
+			SendIndexNotFoundError(c, indexName)
+			return
+		}
+		SendInternalError(c, "get index", err)
 		return
 	}
 
 	// Read the raw JSON data first
 	var rawData interface{}
-	if err := c.ShouldBindJSON(&rawData); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
+	if result := ValidateJSONBinding(c, &rawData); result.HasErrors() {
+		SendValidationError(c, result)
 		return
 	}
 
@@ -37,7 +50,7 @@ func (api *API) AddDocumentsHandler(c *gin.Context) {
 			if docMap, isMap := item.(map[string]interface{}); isMap {
 				docs[i] = docMap
 			} else {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Document at index %d is not a valid object", i)})
+				SendError(c, http.StatusBadRequest, ErrorCodeInvalidRequest, fmt.Sprintf("Document at index %d is not a valid object", i))
 				return
 			}
 		}
@@ -45,41 +58,24 @@ func (api *API) AddDocumentsHandler(c *gin.Context) {
 		// Handle single document
 		docs = []model.Document{docMap}
 	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body. Expecting a document object or an array of documents"})
+		SendError(c, http.StatusBadRequest, ErrorCodeInvalidRequest, "Invalid request body. Expecting a document object or an array of documents")
 		return
 	}
 
-	if len(docs) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No documents provided"})
+	// Validate documents
+	if result := ValidateDocuments(docs); result.HasErrors() {
+		SendValidationError(c, result)
 		return
 	}
 
-	// Process documents: ensure documentID is present and is a valid string.
+	// Clean up document IDs (trim whitespace)
 	for i := range docs {
-		docMap := docs[i] // docs[i] is a map[string]interface{}
-
-		// Handle documentID: must be present and valid (no auto-generation)
-		uuidVal, uuidExists := docMap["documentID"]
-		if !uuidExists {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Document at index %d must have a 'documentID' field", i)})
-			return
-		}
-
-		var finalDocumentID string
-		switch u := uuidVal.(type) {
-		case string:
-			if strings.TrimSpace(u) == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Document at index %d has empty or whitespace-only documentID string", i)})
-				return
+		docMap := docs[i]
+		if docIDVal, exists := docMap["documentID"]; exists {
+			if docIDStr, ok := docIDVal.(string); ok {
+				docMap["documentID"] = strings.TrimSpace(docIDStr)
 			}
-			finalDocumentID = strings.TrimSpace(u)
-		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Document at index %d has documentID with unexpected type: %T (expected string)", i, uuidVal)})
-			return
 		}
-		docMap["documentID"] = finalDocumentID // Ensure the map has a clean string for the indexing service.
-
-		// documentID is the only required field; all others depend on index configuration
 	}
 
 	// Add documents asynchronously
@@ -87,7 +83,7 @@ func (api *API) AddDocumentsHandler(c *gin.Context) {
 	if concreteEngine, ok := api.engine.(*engine.Engine); ok {
 		jobID, err = concreteEngine.AddDocumentsAsync(indexName, docs)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start async document addition: " + err.Error()})
+			SendJobExecutionError(c, "document addition", err)
 			return
 		}
 
@@ -102,7 +98,7 @@ func (api *API) AddDocumentsHandler(c *gin.Context) {
 		indexAccessor, _ := api.engine.GetIndex(indexName)
 		err = indexAccessor.AddDocuments(docs)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add documents to index '" + indexName + "': " + err.Error()})
+			SendIndexingError(c, "add documents", err)
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%d document(s) added/updated in index '%s'", len(docs), indexName)})
@@ -112,9 +108,20 @@ func (api *API) AddDocumentsHandler(c *gin.Context) {
 // DeleteAllDocumentsHandler handles the request to delete all documents from an index.
 func (api *API) DeleteAllDocumentsHandler(c *gin.Context) {
 	indexName := c.Param("indexName")
+
+	// Validate index name
+	if result := ValidateIndexName(indexName); result.HasErrors() {
+		SendValidationError(c, result)
+		return
+	}
+
 	_, err := api.engine.GetIndex(indexName)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
+		if errors.Is(err, internalErrors.ErrIndexNotFound) {
+			SendIndexNotFoundError(c, indexName)
+			return
+		}
+		SendInternalError(c, "get index", err)
 		return
 	}
 
@@ -123,7 +130,7 @@ func (api *API) DeleteAllDocumentsHandler(c *gin.Context) {
 	if concreteEngine, ok := api.engine.(*engine.Engine); ok {
 		jobID, err = concreteEngine.DeleteAllDocumentsAsync(indexName)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start async document deletion: " + err.Error()})
+			SendJobExecutionError(c, "document deletion", err)
 			return
 		}
 
@@ -137,7 +144,7 @@ func (api *API) DeleteAllDocumentsHandler(c *gin.Context) {
 		indexAccessor, _ := api.engine.GetIndex(indexName)
 		err = indexAccessor.DeleteAllDocuments()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete all documents from index '" + indexName + "': " + err.Error()})
+			SendIndexingError(c, "delete all documents", err)
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "All documents deleted from index '" + indexName + "'"})
@@ -153,28 +160,39 @@ type DocumentListRequest struct {
 // GetDocumentsHandler lists documents in an index with pagination
 func (api *API) GetDocumentsHandler(c *gin.Context) {
 	indexName := c.Param("indexName")
+
+	// Validate index name
+	if result := ValidateIndexName(indexName); result.HasErrors() {
+		SendValidationError(c, result)
+		return
+	}
+
 	_, err := api.engine.GetIndex(indexName)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
+		if errors.Is(err, internalErrors.ErrIndexNotFound) {
+			SendIndexNotFoundError(c, indexName)
+			return
+		}
+		SendInternalError(c, "get index", err)
 		return
 	}
 
 	var req DocumentListRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid query parameters: " + err.Error()})
+
+	// Validate query binding
+	if result := ValidateQueryBinding(c, &req); result.HasErrors() {
+		SendValidationError(c, result)
 		return
 	}
 
-	// Set defaults
-	if req.Page <= 0 {
-		req.Page = 1
+	// Validate and set pagination defaults
+	page, pageSize, result := ValidatePagination(req.Page, req.PageSize)
+	if result.HasErrors() {
+		SendValidationError(c, result)
+		return
 	}
-	if req.PageSize <= 0 {
-		req.PageSize = 10
-	}
-	if req.PageSize > 100 {
-		req.PageSize = 100 // Maximum page size
-	}
+	req.Page = page
+	req.PageSize = pageSize
 
 	var documents []model.Document
 	totalCount := 0
@@ -219,9 +237,25 @@ func (api *API) GetDocumentHandler(c *gin.Context) {
 	indexName := c.Param("indexName")
 	documentId := c.Param("documentId")
 
+	// Validate index name
+	if result := ValidateIndexName(indexName); result.HasErrors() {
+		SendValidationError(c, result)
+		return
+	}
+
+	// Validate document ID
+	if result := ValidateDocumentID(documentId); result.HasErrors() {
+		SendValidationError(c, result)
+		return
+	}
+
 	_, err := api.engine.GetIndex(indexName)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
+		if errors.Is(err, internalErrors.ErrIndexNotFound) {
+			SendIndexNotFoundError(c, indexName)
+			return
+		}
+		SendInternalError(c, "get index", err)
 		return
 	}
 
@@ -243,7 +277,7 @@ func (api *API) GetDocumentHandler(c *gin.Context) {
 	}
 
 	if !found {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Document '" + documentId + "' not found in index '" + indexName + "'"})
+		SendDocumentNotFoundError(c, documentId, indexName)
 		return
 	}
 
@@ -255,9 +289,25 @@ func (api *API) DeleteDocumentHandler(c *gin.Context) {
 	indexName := c.Param("indexName")
 	documentId := c.Param("documentId")
 
+	// Validate index name
+	if result := ValidateIndexName(indexName); result.HasErrors() {
+		SendValidationError(c, result)
+		return
+	}
+
+	// Validate document ID
+	if result := ValidateDocumentID(documentId); result.HasErrors() {
+		SendValidationError(c, result)
+		return
+	}
+
 	_, err := api.engine.GetIndex(indexName)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Index '" + indexName + "' not found"})
+		if errors.Is(err, internalErrors.ErrIndexNotFound) {
+			SendIndexNotFoundError(c, indexName)
+			return
+		}
+		SendInternalError(c, "get index", err)
 		return
 	}
 
@@ -266,11 +316,11 @@ func (api *API) DeleteDocumentHandler(c *gin.Context) {
 	if concreteEngine, ok := api.engine.(*engine.Engine); ok {
 		jobID, err = concreteEngine.DeleteDocumentAsync(indexName, documentId)
 		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Document '" + documentId + "' not found in index '" + indexName + "'"})
+			if errors.Is(err, internalErrors.ErrDocumentNotFound) {
+				SendDocumentNotFoundError(c, documentId, indexName)
 				return
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start async document deletion: " + err.Error()})
+			SendJobExecutionError(c, "document deletion", err)
 			return
 		}
 
@@ -285,11 +335,11 @@ func (api *API) DeleteDocumentHandler(c *gin.Context) {
 		indexAccessor, _ := api.engine.GetIndex(indexName)
 		err = indexAccessor.DeleteDocument(documentId)
 		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Document '" + documentId + "' not found in index '" + indexName + "'"})
+			if errors.Is(err, internalErrors.ErrDocumentNotFound) {
+				SendDocumentNotFoundError(c, documentId, indexName)
 				return
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete document '" + documentId + "' from index '" + indexName + "': " + err.Error()})
+			SendIndexingError(c, "delete document", err)
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "Document '" + documentId + "' deleted from index '" + indexName + "'"})

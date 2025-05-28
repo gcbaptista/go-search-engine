@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/gcbaptista/go-search-engine/config"
+	"github.com/gcbaptista/go-search-engine/internal/errors"
 	"github.com/gcbaptista/go-search-engine/internal/search"
 	"github.com/gcbaptista/go-search-engine/model"
 )
@@ -21,7 +22,7 @@ func (e *Engine) CreateIndexAsync(settings config.IndexSettings) (string, error)
 	e.mu.RLock()
 	if _, exists := e.indexes[settings.Name]; exists {
 		e.mu.RUnlock()
-		return "", fmt.Errorf("index named '%s' already exists", settings.Name)
+		return "", errors.NewIndexAlreadyExistsError(settings.Name)
 	}
 	e.mu.RUnlock()
 
@@ -46,7 +47,7 @@ func (e *Engine) executeCreateIndexJob(_ context.Context, settings config.IndexS
 
 	// Double-check that index doesn't exist
 	if _, exists := e.indexes[settings.Name]; exists {
-		return fmt.Errorf("index named '%s' already exists", settings.Name)
+		return errors.NewIndexAlreadyExistsError(settings.Name)
 	}
 
 	// Create in-memory instance first
@@ -77,7 +78,7 @@ func (e *Engine) DeleteIndexAsync(name string) (string, error) {
 	e.mu.RLock()
 	if _, exists := e.indexes[name]; !exists {
 		e.mu.RUnlock()
-		return "", fmt.Errorf("index named '%s' not found", name)
+		return "", errors.NewIndexNotFoundError(name)
 	}
 	e.mu.RUnlock()
 
@@ -101,7 +102,7 @@ func (e *Engine) executeDeleteIndexJob(_ context.Context, name string, _ string)
 	defer e.mu.Unlock()
 
 	if _, exists := e.indexes[name]; !exists {
-		return fmt.Errorf("index named '%s' not found", name)
+		return errors.NewIndexNotFoundError(name)
 	}
 
 	// Remove from memory
@@ -122,7 +123,7 @@ func (e *Engine) AddDocumentsAsync(indexName string, docs []model.Document) (str
 	e.mu.RLock()
 	if _, exists := e.indexes[indexName]; !exists {
 		e.mu.RUnlock()
-		return "", fmt.Errorf("index named '%s' not found", indexName)
+		return "", errors.NewIndexNotFoundError(indexName)
 	}
 	e.mu.RUnlock()
 
@@ -148,7 +149,7 @@ func (e *Engine) executeAddDocumentsJob(ctx context.Context, indexName string, d
 	e.mu.RUnlock()
 
 	if !exists {
-		return fmt.Errorf("index named '%s' not found", indexName)
+		return errors.NewIndexNotFoundError(indexName)
 	}
 
 	// Update progress
@@ -204,17 +205,17 @@ func (e *Engine) executeAddDocumentsJob(ctx context.Context, indexName string, d
 // RenameIndexAsync renames an index asynchronously.
 func (e *Engine) RenameIndexAsync(oldName, newName string) (string, error) {
 	if oldName == newName {
-		return "", fmt.Errorf("old name and new name are the same: '%s'", oldName)
+		return "", errors.NewSameNameError(oldName)
 	}
 
 	e.mu.RLock()
 	if _, exists := e.indexes[oldName]; !exists {
 		e.mu.RUnlock()
-		return "", fmt.Errorf("index named '%s' not found", oldName)
+		return "", errors.NewIndexNotFoundError(oldName)
 	}
 	if _, exists := e.indexes[newName]; exists {
 		e.mu.RUnlock()
-		return "", fmt.Errorf("index named '%s' already exists", newName)
+		return "", errors.NewIndexAlreadyExistsError(newName)
 	}
 	e.mu.RUnlock()
 
@@ -241,11 +242,11 @@ func (e *Engine) executeRenameIndexJob(_ context.Context, oldName, newName strin
 
 	instance, exists := e.indexes[oldName]
 	if !exists {
-		return fmt.Errorf("index named '%s' not found", oldName)
+		return errors.NewIndexNotFoundError(oldName)
 	}
 
 	if _, exists := e.indexes[newName]; exists {
-		return fmt.Errorf("index named '%s' already exists", newName)
+		return errors.NewIndexAlreadyExistsError(newName)
 	}
 
 	// Update the settings with the new name
@@ -280,7 +281,7 @@ func (e *Engine) DeleteAllDocumentsAsync(indexName string) (string, error) {
 	e.mu.RLock()
 	if _, exists := e.indexes[indexName]; !exists {
 		e.mu.RUnlock()
-		return "", fmt.Errorf("index named '%s' not found", indexName)
+		return "", errors.NewIndexNotFoundError(indexName)
 	}
 	e.mu.RUnlock()
 
@@ -305,7 +306,7 @@ func (e *Engine) executeDeleteAllDocumentsJob(_ context.Context, indexName strin
 	e.mu.RUnlock()
 
 	if !exists {
-		return fmt.Errorf("index named '%s' not found", indexName)
+		return errors.NewIndexNotFoundError(indexName)
 	}
 
 	// Delete all documents
@@ -331,7 +332,7 @@ func (e *Engine) DeleteDocumentAsync(indexName, documentID string) (string, erro
 	e.mu.RLock()
 	if _, exists := e.indexes[indexName]; !exists {
 		e.mu.RUnlock()
-		return "", fmt.Errorf("index named '%s' not found", indexName)
+		return "", errors.NewIndexNotFoundError(indexName)
 	}
 	e.mu.RUnlock()
 
@@ -357,7 +358,7 @@ func (e *Engine) executeDeleteDocumentJob(_ context.Context, indexName, document
 	e.mu.RUnlock()
 
 	if !exists {
-		return fmt.Errorf("index named '%s' not found", indexName)
+		return errors.NewIndexNotFoundError(indexName)
 	}
 
 	// Delete the document

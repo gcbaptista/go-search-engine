@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/gcbaptista/go-search-engine/config"
+	"github.com/gcbaptista/go-search-engine/internal/errors"
 	"github.com/gcbaptista/go-search-engine/internal/search"
 )
 
@@ -19,7 +20,7 @@ func (e *Engine) CreateIndex(settings config.IndexSettings) error {
 		return fmt.Errorf("index name cannot be empty")
 	}
 	if _, exists := e.indexes[settings.Name]; exists {
-		return fmt.Errorf("index named '%s' already exists", settings.Name)
+		return errors.NewIndexAlreadyExistsError(settings.Name)
 	}
 
 	// Create in-memory instance first
@@ -51,7 +52,7 @@ func (e *Engine) DeleteIndex(name string) error {
 	defer e.mu.Unlock()
 
 	if _, exists := e.indexes[name]; !exists {
-		return fmt.Errorf("index named '%s' not found", name)
+		return errors.NewIndexNotFoundError(name)
 	}
 
 	// Remove from memory
@@ -73,16 +74,16 @@ func (e *Engine) RenameIndex(oldName, newName string) error {
 	defer e.mu.Unlock()
 
 	if oldName == newName {
-		return fmt.Errorf("old name and new name are the same: '%s'", oldName)
+		return errors.NewSameNameError(oldName)
 	}
 
 	instance, exists := e.indexes[oldName]
 	if !exists {
-		return fmt.Errorf("index named '%s' not found", oldName)
+		return errors.NewIndexNotFoundError(oldName)
 	}
 
 	if _, exists := e.indexes[newName]; exists {
-		return fmt.Errorf("index named '%s' already exists", newName)
+		return errors.NewIndexAlreadyExistsError(newName)
 	}
 
 	// Update the settings with the new name
