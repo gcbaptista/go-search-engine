@@ -21,13 +21,15 @@ const (
 	ErrorCodeInvalidJSON      ErrorCode = "INVALID_JSON"
 	ErrorCodeInvalidQuery     ErrorCode = "INVALID_QUERY"
 	ErrorCodeSameName         ErrorCode = "SAME_NAME_PROVIDED"
+	ErrorCodeNotFound         ErrorCode = "NOT_FOUND"
 
 	// Server Error Codes (5xx)
-	ErrorCodeInternalError      ErrorCode = "INTERNAL_ERROR"
-	ErrorCodeIndexingFailed     ErrorCode = "INDEXING_FAILED"
-	ErrorCodeSearchFailed       ErrorCode = "SEARCH_FAILED"
-	ErrorCodePersistenceFailed  ErrorCode = "PERSISTENCE_FAILED"
-	ErrorCodeJobExecutionFailed ErrorCode = "JOB_EXECUTION_FAILED"
+	ErrorCodeInternalError       ErrorCode = "INTERNAL_ERROR"
+	ErrorCodeInternalServerError ErrorCode = "INTERNAL_SERVER_ERROR"
+	ErrorCodeIndexingFailed      ErrorCode = "INDEXING_FAILED"
+	ErrorCodeSearchFailed        ErrorCode = "SEARCH_FAILED"
+	ErrorCodePersistenceFailed   ErrorCode = "PERSISTENCE_FAILED"
+	ErrorCodeJobExecutionFailed  ErrorCode = "JOB_EXECUTION_FAILED"
 )
 
 // ErrorDetail provides additional context for an error
