@@ -16,6 +16,7 @@ guides, optimization details, and development resources.
 | [**Typo Tolerance System**](./TYPO_TOLERANCE.md)      | Complete guide to typo tolerance features, configuration, and best practices | ✅ Complete |
 | [**Multi-Search API**](./MULTI_SEARCH.md)             | Parallel search execution and advanced query capabilities                    | ✅ Complete |
 | [**Filter Expressions**](./FILTER_EXPRESSIONS.md)     | Advanced boolean filtering with AND/OR logic                                 | ✅ Complete |
+| [**Search Rules Engine**](./SEARCH_RULES.md)          | Persistent rules for pinning/hiding documents with descriptive rule info     | ✅ Complete |
 
 ---
 
@@ -27,7 +28,8 @@ guides, optimization details, and development resources.
 2. **Document Indexing**: [Document Indexing](./INDEXING.md) - High-performance indexing with bulk operations
 3. **API Operations**: [Async API Operations](./ASYNC_API.md) - Understanding async operations and job management
 4. **Typo Tolerance**: [Typo Tolerance System](./TYPO_TOLERANCE.md) - Complete typo tolerance guide
-5. **Advanced Features**: [Multi-Search API](./MULTI_SEARCH.md) - Parallel search capabilities
+5. **Search Rules**: [Search Rules Engine](./SEARCH_RULES.md) - Persistent rules for customizing search results
+6. **Advanced Features**: [Multi-Search API](./MULTI_SEARCH.md) - Parallel search capabilities
 
 ### For Users
 

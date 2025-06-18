@@ -26,6 +26,14 @@ alwaysApply: true
 
 - Any change in the API, make sure you also reflect it in the api-spec.yaml
 
+## Search Rules Engine
+
+- The search rules engine uses **persistent FileRuleStore** in `search_data/rules.json`
+- Rules are shared between API handlers and search handlers via dependency injection
+- Search responses include descriptive rule information in the `rules` field (not headers)
+- Follow the analytics pattern: single shared store instance created in `SetupRoutes`
+- See docs/SEARCH_RULES.md for complete documentation
+
 ## Testing
 
-- Any tests you perform against the application, make sure you leave it as you found it (indexes, settings, documents, etc...)
+- Any tests you perform against the application, make sure you leave it as you found it (indexes, settings, documents, rules, etc...)

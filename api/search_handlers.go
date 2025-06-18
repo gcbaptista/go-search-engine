@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -89,6 +90,28 @@ func (api *API) SearchHandler(c *gin.Context) {
 	if err != nil {
 		SendSearchError(c, indexName, err)
 		return
+	}
+
+	// Apply rules to search results
+	ruleContext := model.RuleEvaluationContext{
+		Query:       req.Query,
+		IndexName:   indexName,
+		ResultCount: len(results.Hits),
+	}
+
+	modifiedHits, ruleExecutionResult, err := api.ruleEngine.ApplyRules(indexName, req.Query, results.Hits, ruleContext)
+	if err != nil {
+		log.Printf("Warning: Failed to apply rules: %v", err)
+		// Continue with original results if rule application fails
+	} else {
+		results.Hits = modifiedHits
+		// Add rule execution info to response body
+		if ruleExecutionResult.ModificationsApplied {
+			results.Rules = &services.RuleExecutionSummary{
+				Applied: true,
+				Details: api.buildRuleApplicationDetails(req.Query, ruleExecutionResult.RulesApplied),
+			}
+		}
 	}
 
 	// Track analytics event
@@ -189,6 +212,64 @@ func (api *API) MultiSearchHandler(c *gin.Context) {
 		return
 	}
 
+	// Apply rules to each search result
+	totalRulesApplied := 0
+	totalRuleExecutionTime := 0.0
+	anyRulesApplied := false
+
+	for queryName, result := range results.Results {
+		// Find the original request for this query to get the query string
+		var originalQuery string
+		for _, namedReq := range req.Queries {
+			if namedReq.Name == queryName {
+				originalQuery = namedReq.Query
+				break
+			}
+		}
+
+		if originalQuery != "" {
+			ruleContext := model.RuleEvaluationContext{
+				Query:       originalQuery,
+				IndexName:   indexName,
+				ResultCount: len(result.Hits),
+			}
+
+			modifiedHits, ruleExecutionResult, err := api.ruleEngine.ApplyRules(indexName, originalQuery, result.Hits, ruleContext)
+			if err != nil {
+				log.Printf("Warning: Failed to apply rules for query '%s': %v", originalQuery, err)
+			} else {
+				result.Hits = modifiedHits
+				if ruleExecutionResult.ModificationsApplied {
+					anyRulesApplied = true
+					totalRulesApplied += len(ruleExecutionResult.RulesApplied)
+					totalRuleExecutionTime += ruleExecutionResult.ExecutionTimeMs
+
+					// Add rule info to individual search result
+					result.Rules = &services.RuleExecutionSummary{
+						Applied: true,
+						Details: api.buildRuleApplicationDetails(originalQuery, ruleExecutionResult.RulesApplied),
+					}
+				}
+			}
+			results.Results[queryName] = result
+		}
+	}
+
+	// Add overall rule execution info to multi-search response
+	if anyRulesApplied {
+		// Collect all rule details from individual results
+		var allDetails []services.RuleApplicationInfo
+		for _, result := range results.Results {
+			if result.Rules != nil && result.Rules.Applied {
+				allDetails = append(allDetails, result.Rules.Details...)
+			}
+		}
+		results.Rules = &services.RuleExecutionSummary{
+			Applied: true,
+			Details: allDetails,
+		}
+	}
+
 	// Track analytics events for each individual query
 	responseTime := time.Since(startTime)
 	for queryName, result := range results.Results {
@@ -238,4 +319,44 @@ func (api *API) determineSearchType(req SearchRequest) string {
 	}
 
 	return "exact_match"
+}
+
+// buildRuleApplicationDetails converts rule execution results into descriptive information
+func (api *API) buildRuleApplicationDetails(query string, rulesApplied []model.RuleApplication) []services.RuleApplicationInfo {
+	var details []services.RuleApplicationInfo
+
+	for _, ruleApp := range rulesApplied {
+		var actionDescriptions []string
+		var documentIDs []string
+
+		for _, action := range ruleApp.ActionsApplied {
+			switch action {
+			case "pin":
+				actionDescriptions = append(actionDescriptions, "pinned to position 1")
+			case "hide":
+				actionDescriptions = append(actionDescriptions, "hidden from results")
+			default:
+				actionDescriptions = append(actionDescriptions, action)
+			}
+		}
+
+		// Create trigger description based on query
+		var trigger string
+		if strings.TrimSpace(query) != "" {
+			trigger = fmt.Sprintf("query match: '%s'", query)
+		} else {
+			trigger = "query conditions met"
+		}
+
+		detail := services.RuleApplicationInfo{
+			RuleName:    ruleApp.RuleName,
+			Action:      strings.Join(actionDescriptions, ", "),
+			Trigger:     trigger,
+			DocumentIDs: documentIDs,
+		}
+
+		details = append(details, detail)
+	}
+
+	return details
 }

@@ -22,13 +22,28 @@ type HitResult struct {
 	Info         HitInfo             `json:"hit_info"`      // Contains metadata like typo counts and exact matches
 }
 
+// RuleExecutionSummary contains a summary of rule execution for search responses
+type RuleExecutionSummary struct {
+	Applied bool                  `json:"applied"` // Whether any rules were applied
+	Details []RuleApplicationInfo `json:"details"` // Details about what rules were applied
+}
+
+// RuleApplicationInfo describes what a specific rule did
+type RuleApplicationInfo struct {
+	RuleName    string   `json:"rule_name"`              // Name of the rule that was applied
+	Action      string   `json:"action"`                 // What the rule did (e.g., "pinned to position 1", "hidden from results")
+	Trigger     string   `json:"trigger"`                // What caused the rule to trigger (e.g., "query exact match: 'The Office'")
+	DocumentIDs []string `json:"document_ids,omitempty"` // IDs of documents affected by this rule
+}
+
 type SearchResult struct {
-	Hits     []HitResult `json:"hits"`
-	Total    int         `json:"total"`
-	Page     int         `json:"page"`
-	PageSize int         `json:"page_size"`
-	Took     int64       `json:"took"`     // milliseconds
-	QueryId  string      `json:"query_id"` // unique UUID for this search query
+	Hits     []HitResult           `json:"hits"`
+	Total    int                   `json:"total"`
+	Page     int                   `json:"page"`
+	PageSize int                   `json:"page_size"`
+	Took     int64                 `json:"took"`            // milliseconds
+	QueryId  string                `json:"query_id"`        // unique UUID for this search query
+	Rules    *RuleExecutionSummary `json:"rules,omitempty"` // Rule execution information
 }
 
 type SearchQuery struct {
@@ -65,6 +80,7 @@ type MultiSearchResult struct {
 	Results          map[string]SearchResult `json:"results"`
 	TotalQueries     int                     `json:"total_queries"`
 	ProcessingTimeMs float64                 `json:"processing_time_ms"`
+	Rules            *RuleExecutionSummary   `json:"rules,omitempty"` // Rule execution information across all queries
 }
 
 // FilterCondition represents a single filter condition

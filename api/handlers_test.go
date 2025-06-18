@@ -38,7 +38,9 @@ func setupTestEngine() *engine.Engine {
 func setupTestRouter(eng *engine.Engine) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	SetupRoutes(router, eng)
+	// Use a simple temporary directory for tests
+	testDir := "./test_data_rules"
+	SetupRoutes(router, eng, testDir)
 	return router
 }
 

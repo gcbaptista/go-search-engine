@@ -55,7 +55,7 @@ func main() {
 	router := gin.Default()
 
 	// Setup API routes
-	api.SetupRoutes(router, searchEngine)
+	api.SetupRoutes(router, searchEngine, *dataDir)
 
 	// Configure HTTP server with timeouts to prevent hanging connections
 	srv := &http.Server{
